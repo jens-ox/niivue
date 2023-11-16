@@ -34,13 +34,13 @@
     if (!g) throw new Error(A);
   }
   function N(g) {
-    return g && (g & (g - 1)) == 0;
+    return g && (g & (g - 1)) === 0;
   }
   function s(g) {
     R(N(g), `not power of two: ${g}`);
   }
   function K(g, A) {
-    return s(A), (g & (A - 1)) == 0;
+    return s(A), (g & (A - 1)) === 0;
   }
   function a(g, A) {
     R(K(g, A), `bad alignment: ${g} % ${A}`);
@@ -57,7 +57,7 @@
         let C = (A + Q) / D,
           B = C >> h,
           E = 1 << (C & (G - 1));
-        R((this.state[B] & E) == 0, "word in use"), (this.state[B] |= E);
+        R((this.state[B] & E) === 0, "word in use"), (this.state[B] |= E);
       }
       this.allocations.set(A, I);
     }
@@ -135,7 +135,7 @@
         I.dt,
         E
       );
-      if (S != 0) {
+      if (S !== 0) {
         console.error(" -> '", C, " generated a fatal error: ", S);
         return;
       }

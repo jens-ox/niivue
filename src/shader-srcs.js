@@ -1,4 +1,4 @@
-export var vertRenderShader = `#version 300 es
+export const vertRenderShader = `#version 300 es
 #line 4
 layout(location=0) in vec3 pos;
 layout(location=1) in vec3 texCoords;
@@ -7,7 +7,7 @@ out vec3 vColor;
 void main(void) {
 	gl_Position = mvpMtx * vec4(pos, 1.0);
 	vColor = texCoords;
-}`;
+}`
 
 const kDrawFunc = `
 	vec4 drawColor(float scalar) {
@@ -16,7 +16,7 @@ const kDrawFunc = `
 		vec4 dcolor = texture(colormap, vec2((scalar * 255.0)/256.0 + 0.5/256.0, layer)).rgba;
 		dcolor.a *= drawOpacity;
 		return dcolor;
-}`;
+}`
 
 const kRenderFunc =
   `vec3 GetBackPosition(vec3 startPositionTex) {
@@ -34,7 +34,7 @@ const kRenderFunc =
 vec4 applyClip (vec3 dir, inout vec4 samplePos, inout float len, inout bool isClip) {
 	float cdot = dot(dir,clipPlane.xyz);
 	isClip = false;
-	if  ((clipPlane.a > 1.0) || (cdot == 0.0)) return samplePos;
+	if  ((clipPlane.a > 1.0) || (cdot === 0.0)) return samplePos;
 	bool frontface = (cdot > 0.0);
 	float clipThick = 2.0;
 	float dis = (-clipPlane.a - dot(clipPlane.xyz, samplePos.xyz-0.5)) / cdot;
@@ -52,7 +52,7 @@ vec4 applyClip (vec3 dir, inout vec4 samplePos, inout float len, inout bool isCl
 	if (!frontface) {
 		len = min(dis, len);
 		disBackFace = max(0.0, disBackFace);
-		if (len == dis) isClip = true;
+		if (len === dis) isClip = true;
 		samplePos = vec4(samplePos.xyz+dir * disBackFace, disBackFace);
 	}
 	return samplePos;
@@ -67,9 +67,9 @@ float frac2ndc(vec3 frac) {
 	vec4 mm = transpose(matRAS) * pos;
 	float z_ndc = (mvpMtx * vec4(mm.xyz, 1.0)).z;
 	return (z_ndc + 1.0) / 2.0;
-}` + kDrawFunc;
+}` + kDrawFunc
 
-export var fragRenderShaderMIP =
+export const fragRenderShaderMIP =
   `#version 300 es
 #line 73
 precision highp int;
@@ -113,7 +113,7 @@ out vec4 fColor;
 	float lenNoClip = len;
 	bool isClip = false;
 	vec4 clipPos = applyClip(dir, samplePos, len, isClip);
-	//if ((clipPos.a != samplePos.a) && (len < 3.0)) {
+	//if ((clipPos.a !== samplePos.a) && (len < 3.0)) {
 	//start: OPTIONAL fast pass: rapid traversal until first hit
 	float stepSizeFast = sliceSize * 1.9;
 	vec4 deltaDirFast = vec4(dir.xyz * stepSizeFast, stepSizeFast);
@@ -169,7 +169,7 @@ out vec4 fColor;
 		samplePos += deltaDirFast; //advance ray position
 	}
 	if (samplePos.a >= len) {
-		if (isClip && (fColor.a == 0.0))
+		if (isClip && (fColor.a === 0.0))
 			fColor += clipPlaneColor;
 		return;
 	}
@@ -209,7 +209,7 @@ out vec4 fColor;
 	}
 	fColor.rgb = mix(fColor.rgb, colAcc.rgb, overMix);
 	fColor.a = max(fColor.a, colAcc.a);
-}`;
+}`
 
 const kRenderInit = `void main() {
 	if (fColor.x > 2.0) {
@@ -245,7 +245,7 @@ const kRenderInit = `void main() {
 	float lenNoClip = len;
 	bool isClip = false;
 	vec4 clipPos = applyClip(dir, samplePos, len, isClip);
-	//if ((clipPos.a != samplePos.a) && (len < 3.0)) {
+	//if ((clipPos.a !== samplePos.a) && (len < 3.0)) {
 	//start: OPTIONAL fast pass: rapid traversal until first hit
 	float stepSizeFast = sliceSize * 1.9;
 	vec4 deltaDirFast = vec4(dir.xyz * stepSizeFast, stepSizeFast);
@@ -272,7 +272,7 @@ const kRenderInit = `void main() {
 	float backNearest = len; //assume no hit
 	float ran = fract(sin(gl_FragCoord.x * 12.9898 + gl_FragCoord.y * 78.233) * 43758.5453);
 	samplePos += deltaDir * ran; //jitter ray
-`;
+`
 
 const kRenderTail = `
 	if (firstHit.a < len)
@@ -280,7 +280,7 @@ const kRenderTail = `
 	colAcc.a = (colAcc.a / earlyTermination) * backOpacity;
 	fColor = colAcc;
 	//if (isClip) //CR
-	if ((isColorPlaneInVolume) && (clipPos.a != samplePos.a) && (abs(firstHit.a - clipPos.a) < deltaDir.a))
+	if ((isColorPlaneInVolume) && (clipPos.a !== samplePos.a) && (abs(firstHit.a - clipPos.a) < deltaDir.a))
 		fColor.rgb = mix(fColor.rgb, clipPlaneColorX.rgb, abs(clipPlaneColor.a));
 		//fColor.rgb = mix(fColor.rgb, clipPlaneColorX.rgb, clipPlaneColorX.a * 0.65);
 	if ((overlays < 1.0) && (drawOpacity <= 0.0))
@@ -300,7 +300,7 @@ const kRenderTail = `
 		samplePos += deltaDirFast; //advance ray position
 	}
 	if (samplePos.a >= len) {
-		if (isClip && (fColor.a == 0.0))
+		if (isClip && (fColor.a === 0.0))
 				fColor += clipPlaneColorX;
 			return;
 	}
@@ -380,7 +380,7 @@ const kRenderTail = `
 	}
 	//if (samplePos.a >= len) {
 	if (colAcc.a <= 0.0) {
-		if (isClip && (fColor.a == 0.0))
+		if (isClip && (fColor.a === 0.0))
 			fColor += clipPlaneColorX;
 		return;
 	}
@@ -397,10 +397,10 @@ const kRenderTail = `
 	}
 	fColor.rgb = mix(fColor.rgb, colAcc.rgb, overMix);
 	fColor.a = max(fColor.a, colAcc.a);
-}`; // kRenderTail
+}` // kRenderTail
 
-//https://github.com/niivue/niivue/issues/679
-export var fragRenderSliceShader =
+// https://github.com/niivue/niivue/issues/679
+export const fragRenderSliceShader =
   `#version 300 es
 #line 215
 precision highp int;
@@ -482,9 +482,9 @@ out vec4 fColor;
 	float ran = fract(sin(gl_FragCoord.x * 12.9898 + gl_FragCoord.y * 78.233) * 43758.5453);
 	samplePos += deltaDir * ran; //jitter ray
 ` +
-  kRenderTail;
+  kRenderTail
 
-export var fragRenderShader =
+export const fragRenderShader =
   `#version 300 es
 #line 215
 precision highp int;
@@ -524,9 +524,9 @@ out vec4 fColor;
 		}
 	}
 ` +
-  kRenderTail;
+  kRenderTail
 
-export var fragRenderGradientShader =
+export const fragRenderGradientShader =
   `#version 300 es
 #line 215
 precision highp int;
@@ -585,9 +585,9 @@ out vec4 fColor;
 		samplePos += deltaDir; //advance ray position
 	}
 ` +
-  kRenderTail;
+  kRenderTail
 
-export var vertSliceMMShader = `#version 300 es
+export const vertSliceMMShader = `#version 300 es
 #line 392
 layout(location=0) in vec3 pos;
 uniform int axCorSag;
@@ -603,9 +603,9 @@ void main(void) {
 		texPos = vec3(pos.x, slice, pos.y);
 	vec4 mm = frac2mm * vec4(texPos, 1.0);
 	gl_Position = mvpMtx * mm;
-}`;
+}`
 
-export var fragSliceMMShader =
+export const fragSliceMMShader =
   `#version 300 es
 #line 411
 precision highp int;
@@ -628,7 +628,7 @@ out vec4 color;` +
 	//color = vec4(1.0, 0.0, 1.0, 1.0);return;
 	vec4 background = texture(volume, texPos);
 	color = vec4(background.rgb, opacity);
-	if ((isAlphaClipDark) && (background.a == 0.0)) color.a = 0.0; //FSLeyes clipping range
+	if ((isAlphaClipDark) && (background.a === 0.0)) color.a = 0.0; //FSLeyes clipping range
 	vec4 ocolor = vec4(0.0);
 	float overlayAlpha = overlayAlphaShader;
 	if (overlays > 0.0) {
@@ -637,7 +637,7 @@ out vec4 color;` +
 		//however, this only identifies 50% of the edges due to aliasing effects
 		// http://www.aclockworkberry.com/shader-derivative-functions/
 		// https://bgolus.medium.com/distinctive-derivative-differences-cce38d36797b
-		//if ((ocolor.a >= 1.0) && ((dFdx(ocolor.a) != 0.0) || (dFdy(ocolor.a) != 0.0)  ))
+		//if ((ocolor.a >= 1.0) && ((dFdx(ocolor.a) !== 0.0) || (dFdy(ocolor.a) !== 0.0)  ))
 		//	ocolor.rbg = vec3(0.0, 0.0, 0.0);
 		bool isOutlineBelowNotAboveThreshold = true;
 		if (isOutlineBelowNotAboveThreshold) {
@@ -651,15 +651,15 @@ out vec4 color;` +
 				vec3 vxS = vec3(texPos.x, texPos.y, texPos.z+vx.z);
 				vec3 vxI = vec3(texPos.x, texPos.y, texPos.z-vx.z);
 				float a = 0.0;
-				if (axCorSag != 2) {
+				if (axCorSag !== 2) {
 					a = max(a, texture(overlay, vxR).a);
 					a = max(a, texture(overlay, vxL).a);
 				}
-				if (axCorSag != 1) {
+				if (axCorSag !== 1) {
 					a = max(a, texture(overlay, vxA).a);
 					a = max(a, texture(overlay, vxP).a);
 				}
-				if (axCorSag != 0) {
+				if (axCorSag !== 0) {
 					a = max(a, texture(overlay, vxS).a);
 					a = max(a, texture(overlay, vxI).a);
 				}
@@ -679,19 +679,19 @@ out vec4 color;` +
 					vec3 vxAI = vec3(texPos.x, texPos.y+vx.y, texPos.z-vx.z);
 					vec3 vxPI = vec3(texPos.x, texPos.y-vx.y, texPos.z-vx.z);
 
-					if (axCorSag == 0) { //axial corners
+					if (axCorSag === 0) { //axial corners
 						a = max(a, texture(overlay, vxRA).a);
 						a = max(a, texture(overlay, vxLA).a);
 						a = max(a, texture(overlay, vxRP).a);
 						a = max(a, texture(overlay, vxLP).a);
 					}
-					if (axCorSag == 1) { //coronal corners
+					if (axCorSag === 1) { //coronal corners
 						a = max(a, texture(overlay, vxRS).a);
 						a = max(a, texture(overlay, vxLS).a);
 						a = max(a, texture(overlay, vxRI).a);
 						a = max(a, texture(overlay, vxLI).a);
 					}
-					if (axCorSag == 2) { //sagittal corners
+					if (axCorSag === 2) { //sagittal corners
 						a = max(a, texture(overlay, vxAS).a);
 						a = max(a, texture(overlay, vxPS).a);
 						a = max(a, texture(overlay, vxAI).a);
@@ -714,15 +714,15 @@ out vec4 color;` +
 				vec3 vxS = vec3(texPos.x, texPos.y, texPos.z+vx.z);
 				vec3 vxI = vec3(texPos.x, texPos.y, texPos.z-vx.z);
 				float a = 1.0;
-				if (axCorSag != 2) {
+				if (axCorSag !== 2) {
 					a = min(a, texture(overlay, vxR).a);
 					a = min(a, texture(overlay, vxL).a);
 				}
-				if (axCorSag != 1) {
+				if (axCorSag !== 1) {
 					a = min(a, texture(overlay, vxA).a);
 					a = min(a, texture(overlay, vxP).a);
 				}
-				if (axCorSag != 0) {
+				if (axCorSag !== 0) {
 					a = min(a, texture(overlay, vxS).a);
 					a = min(a, texture(overlay, vxI).a);
 				}
@@ -739,15 +739,15 @@ out vec4 color;` +
 		color.rgb = mix(color.rgb, dcolor.rgb, dcolor.a);
 		color.a = max(drawOpacity, color.a);
 	}
-	if ((backgroundMasksOverlays > 0) && (background.a == 0.0))
+	if ((backgroundMasksOverlays > 0) && (background.a === 0.0))
 		return;
 	float a = color.a + ocolor.a * (1.0 - color.a); // premultiplied alpha
-	if (a == 0.0) return;
+	if (a === 0.0) return;
 	color.rgb = mix(color.rgb, ocolor.rgb, ocolor.a / a);
 	color.a = a;
-}`;
+}`
 
-export var fragRectShader = `#version 300 es
+export const fragRectShader = `#version 300 es
 #line 480
 precision highp int;
 precision highp float;
@@ -755,9 +755,9 @@ uniform vec4 lineColor;
 out vec4 color;
 void main() {
 	color = lineColor;
-}`;
+}`
 
-export var vertColorbarShader = `#version 300 es
+export const vertColorbarShader = `#version 300 es
 #line 490
 layout(location=0) in vec3 pos;
 uniform vec2 canvasWidthHeight;
@@ -771,9 +771,9 @@ void main(void) {
 	frac = (frac * 2.0) - 1.0;
 	gl_Position = vec4(frac, 0.0, 1.0);
 	vColor = pos.xy;
-}`;
+}`
 
-export var fragColorbarShader = `#version 300 es
+export const fragColorbarShader = `#version 300 es
 #line 506
 precision highp int;
 precision highp float;
@@ -785,9 +785,9 @@ void main() {
 	float nlayer = float(textureSize(colormap, 0).y);
 	float fmap = (0.5 + layer) / nlayer;
 	color = vec4(texture(colormap, vec2(vColor.x, fmap)).rgb, 1.0);
-}`;
+}`
 
-export var vertRectShader = `#version 300 es
+export const vertRectShader = `#version 300 es
 #line 520
 layout(location=0) in vec3 pos;
 uniform vec2 canvasWidthHeight;
@@ -799,9 +799,9 @@ void main(void) {
 	frac.y = 1.0 - ((leftTopWidthHeight.y + ((1.0 - pos.y) * leftTopWidthHeight.w)) / canvasWidthHeight.y); //1..0
 	frac = (frac * 2.0) - 1.0;
 	gl_Position = vec4(frac, 0.0, 1.0);
-}`;
+}`
 
-export var vertLineShader = `#version 300 es
+export const vertLineShader = `#version 300 es
 #line 534
 layout(location=0) in vec3 pos;
 uniform vec2 canvasWidthHeight;
@@ -814,9 +814,9 @@ void main(void) {
 	posXY.x = (posXY.x) / canvasWidthHeight.x; //0..1
 	posXY.y = 1.0 - (posXY.y / canvasWidthHeight.y); //1..0
 	gl_Position = vec4((posXY * 2.0) - 1.0, 0.0, 1.0);
-}`;
+}`
 
-export var vertLine3DShader = `#version 300 es
+export const vertLine3DShader = `#version 300 es
 #line 534
 layout(location=0) in vec3 pos;
 uniform vec2 canvasWidthHeight;
@@ -835,9 +835,9 @@ void main(void) {
 	posXY.y = 1.0 - (posXY.y / canvasWidthHeight.y); //1..0	
 	float z = endXYZ.z * ( 1.0 - abs(currentDistance/startDistance)); 
 	gl_Position = vec4((posXY * 2.0) - 1.0, z, 1.0);
-}`;
+}`
 
-export var vertBmpShader = `#version 300 es
+export const vertBmpShader = `#version 300 es
 #line 549
 layout(location=0) in vec3 pos;
 uniform vec2 canvasWidthHeight;
@@ -851,9 +851,9 @@ void main(void) {
 	frac = (frac * 2.0) - 1.0;
 	gl_Position = vec4(frac, 0.0, 1.0);
 	vUV = vec2(pos.x, 1.0 - pos.y);
-}`;
+}`
 
-export var fragBmpShader = `#version 300 es
+export const fragBmpShader = `#version 300 es
 #line 565
 precision highp int;
 precision highp float;
@@ -862,9 +862,9 @@ in vec2 vUV;
 out vec4 color;
 void main() {
 	color = texture(bmpTexture, vUV);
-}`;
+}`
 
-export var vertFontShader = `#version 300 es
+export const vertFontShader = `#version 300 es
 #line 576
 layout(location=0) in vec3 pos;
 uniform vec2 canvasWidthHeight;
@@ -879,9 +879,9 @@ void main(void) {
 	frac = (frac * 2.0) - 1.0;
 	gl_Position = vec4(frac, 0.0, 1.0);
 	vUV = vec2(uvLeftTopWidthHeight.x + (pos.x * uvLeftTopWidthHeight.z), uvLeftTopWidthHeight.y  + ((1.0 - pos.y) * uvLeftTopWidthHeight.w) );
-}`;
+}`
 
-export var fragFontShader = `#version 300 es
+export const fragFontShader = `#version 300 es
 #line 593
 precision highp int;
 precision highp float;
@@ -899,9 +899,9 @@ void main() {
 	float screenPxDistance = screenPxRange*(sd - 0.5);
 	float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
 	color = vec4(fontColor.rgb , fontColor.a * opacity);
-}`;
+}`
 
-export var vertCircleShader = `#version 300 es
+export const vertCircleShader = `#version 300 es
 layout(location=0) in vec3 pos;
 uniform vec2 canvasWidthHeight;
 uniform vec4 leftTopWidthHeight;
@@ -915,9 +915,9 @@ void main(void) {
 	frac = (frac * 2.0) - 1.0;
 	gl_Position = vec4(frac, 0.0, 1.0);
 	vUV = pos.xy;
-}`;
+}`
 
-export var fragCircleShader = `#version 300 es
+export const fragCircleShader = `#version 300 es
 precision highp int;
 precision highp float;
 uniform vec4 circleColor;
@@ -935,9 +935,9 @@ void main() {
 			color = vec4(0.0,0.0,0.0,0.0);
 	}
 }
-`;
+`
 
-export var vertOrientShader = `#version 300 es
+export const vertOrientShader = `#version 300 es
 #line 613
 precision highp int;
 precision highp float;
@@ -946,22 +946,22 @@ out vec2 TexCoord;
 void main() {
 	TexCoord = vPos.xy;
 	gl_Position = vec4( (vPos.xy-vec2(0.5,0.5)) * 2.0, 0.0, 1.0);
-}`;
+}`
 
-export var fragOrientShaderU = `#version 300 es
+export const fragOrientShaderU = `#version 300 es
 uniform highp usampler3D intensityVol;
-`;
+`
 
-export var fragOrientShaderI = `#version 300 es
+export const fragOrientShaderI = `#version 300 es
 uniform highp isampler3D intensityVol;
-`;
+`
 
-export var fragOrientShaderF = `#version 300 es
+export const fragOrientShaderF = `#version 300 es
 uniform highp sampler3D intensityVol;
-`;
+`
 
-//uniform vec2 canvasWidthHeight;
-export var fragOrientShaderAtlas = `#line 636
+// uniform vec2 canvasWidthHeight;
+export const fragOrientShaderAtlas = `#line 636
 precision highp int;
 precision highp float;
 in vec2 TexCoord;
@@ -977,7 +977,7 @@ void main(void) {
 	vec4 vx = vec4(TexCoord.x, TexCoord.y, coordZ, 1.0) * mtx;
 	uint idx = uint(texture(intensityVol, vx.xyz).r);
 	FragColor = vec4(0.0, 0.0, 0.0, 0.0);
-	if (idx == uint(0))
+	if (idx === uint(0))
 		return;
 	if (xyzFrac.x > 0.0) { //outline
 		vx = vec4(TexCoord.x+xyzFrac.x, TexCoord.y, coordZ, 1.0) * mtx;
@@ -992,7 +992,7 @@ void main(void) {
 		uint S = uint(texture(intensityVol, vx.xyz).r);
 		vx = vec4(TexCoord.x, TexCoord.y, coordZ-xyzFrac.z, 1.0) * mtx;
 		uint I = uint(texture(intensityVol, vx.xyz).r);
-		if ((idx == R) && (idx == L) && (idx == A) && (idx == P) && (idx == S) && (idx == I))
+		if ((idx === R) && (idx === L) && (idx === A) && (idx === P) && (idx === S) && (idx === I))
 			return;
 	}
 	idx = ((idx - uint(1)) % uint(100))+uint(1);
@@ -1014,9 +1014,9 @@ void main(void) {
 	if (aout <= 0.0) return;
 	FragColor.rgb = ((FragColor.rgb * FragColor.a) + (prevColor.rgb * prevColor.a * (1.0 - FragColor.a))) / aout;
 	FragColor.a = aout;
-}`;
+}`
 
-export var fragOrientShader = `#line 691
+export const fragOrientShader = `#line 691
 precision highp int;
 precision highp float;
 in vec2 TexCoord;
@@ -1078,15 +1078,15 @@ void main(void) {
 	//	FragColor.a *= texture(modulationVol, vx.xyz).r;
 	//	FragColor.rgb *= texture(modulationVol, vx.xyz).r;
 	if (isAlphaThreshold) {
-		if ((cal_minNeg != cal_maxNeg) && ( f < 0.0) && (f > cal_maxNeg))
+		if ((cal_minNeg !== cal_maxNeg) && ( f < 0.0) && (f > cal_maxNeg))
 			FragColor.a = pow(-f / -cal_maxNeg, 2.0);
 		else if ((f > 0.0) && (cal_min > 0.0))
 			FragColor.a *= pow(f / cal_min, 2.0); //issue435:  A = (V/X)**2
 		//FragColor.g = 0.0;
 	}
-	if (modulation == 1) {
+	if (modulation === 1) {
 		FragColor.rgb *= texture(modulationVol, vx.xyz).r;
-	} else if (modulation == 2) {
+	} else if (modulation === 2) {
 		FragColor.a = texture(modulationVol, vx.xyz).r;
 	}
 	FragColor.a *= opacity;
@@ -1100,9 +1100,9 @@ void main(void) {
 	else
 		FragColor.rgb = ((FragColor.rgb * FragColor.a) + (prevColor.rgb * prevColor.a * (1.0 - FragColor.a))) / aout;
 	FragColor.a = aout;
-}`;
+}`
 
-export var fragRGBOrientShader = `#line 773
+export const fragRGBOrientShader = `#line 773
 precision highp int;
 precision highp float;
 in vec2 TexCoord;
@@ -1124,19 +1124,19 @@ void main(void) {
 	vec4 vx = vec4(TexCoord.xy, coordZ, 1.0) * mtx;
 	uvec4 aColor = texture(intensityVol, vx.xyz);
 	FragColor = vec4(float(aColor.r) / 255.0, float(aColor.g) / 255.0, float(aColor.b) / 255.0, float(aColor.a) / 255.0);
-	if (modulation == 1)
+	if (modulation === 1)
 		FragColor.rgb *= texture(modulationVol, vx.xyz).r;
 	if (!hasAlpha) {
 		FragColor.a = (FragColor.r * 0.21 + FragColor.g * 0.72 + FragColor.b * 0.07);
 		//next line: we could binarize alpha, but see rendering of visible human
 		//FragColor.a = step(0.01, FragColor.a);
 	}
-	if (modulation == 2)
+	if (modulation === 2)
 		FragColor.a = texture(modulationVol, vx.xyz).r;
 	FragColor.a *= opacity;
-}`;
+}`
 
-export var vertGrowCutShader = `#version 300 es
+export const vertGrowCutShader = `#version 300 es
 #line 808
 precision highp int;
 precision highp float;
@@ -1145,11 +1145,11 @@ out vec2 TexCoord;
 void main() {
 	TexCoord = vPos.xy;
 	gl_Position = vec4((vPos.x - 0.5) * 2.0, (vPos.y - 0.5) * 2.0, 0.0, 1.0);
-}`;
+}`
 
-//https://github.com/pieper/step/blob/master/src/growcut.js
+// https://github.com/pieper/step/blob/master/src/growcut.js
 // Steve Pieper 2022: Apache License 2.0
-export var fragGrowCutShader = `#version 300 es
+export const fragGrowCutShader = `#version 300 es
 #line 829
 	precision highp float;
 	precision highp int;
@@ -1173,7 +1173,7 @@ void main(void) {
 	for (int k = -1; k <= 1; k++) {
 		for (int j = -1; j <= 1; j++) {
 			for (int i = -1; i <= 1; i++) {
-				if (i != 0 && j != 0 && k != 0) {
+				if (i !== 0 && j !== 0 && k !== 0) {
 					ivec3 neighborIndex = texelIndex + ivec3(i,j,k);
 					int neighborBackground = texelFetch(inputTexture0, neighborIndex, 0).r;
 					int neighborStrength = texelFetch(inputTexture2, neighborIndex, 0).r;
@@ -1201,7 +1201,7 @@ void main(void) {
 				else
 					labelCount[ilabel]++;
 			}
-	if (ok != 1) {
+	if (ok !== 1) {
 		return;
 	}
 	int maxIdx = 0;
@@ -1210,25 +1210,25 @@ void main(void) {
 			maxIdx = i;
 	}
 	label = maxIdx;
-}`; //inputTexture0
+}` // inputTexture0
 
-export var vertSurfaceShader = `#version 300 es
+export const vertSurfaceShader = `#version 300 es
 layout(location=0) in vec3 pos;
 uniform mat4 mvpMtx;
 void main(void) {
 	gl_Position = mvpMtx * vec4(pos, 1.0);
-}`;
+}`
 
-export var fragSurfaceShader = `#version 300 es
+export const fragSurfaceShader = `#version 300 es
 precision highp int;
 precision highp float;
 uniform vec4 surfaceColor;
 out vec4 color;
 void main() {
 	color = surfaceColor;
-}`;
+}`
 
-export var vertFiberShader = `#version 300 es
+export const vertFiberShader = `#version 300 es
 layout(location=0) in vec3 pos;
 layout(location=1) in vec4 clr;
 out vec4 vClr;
@@ -1236,9 +1236,9 @@ uniform mat4 mvpMtx;
 void main(void) {
 	gl_Position = mvpMtx * vec4(pos, 1.0);
 	vClr = clr;
-}`;
+}`
 
-export var fragFiberShader = `#version 300 es
+export const fragFiberShader = `#version 300 es
 precision highp int;
 precision highp float;
 in vec4 vClr;
@@ -1246,9 +1246,9 @@ out vec4 color;
 uniform float opacity;
 void main() {
 	color = vec4(vClr.rgb, opacity);
-}`;
+}`
 
-export var vertMeshShader = `#version 300 es
+export const vertMeshShader = `#version 300 es
 layout(location=0) in vec3 pos;
 layout(location=1) in vec4 norm;
 layout(location=2) in vec4 clr;
@@ -1263,11 +1263,11 @@ void main(void) {
 	vN = normalize((normMtx * vec4(norm.xyz,1.0)).xyz);
 	//vV = -vec3(modelMtx*vec4(pos,1.0));
 	vClr = clr;
-}`;
+}`
 
-//report depth for fragment
+// report depth for fragment
 // https://github.com/rii-mango/Papaya/blob/782a19341af77a510d674c777b6da46afb8c65f1/src/js/viewer/screensurface.js#L89
-export var fragMeshDepthShader = `#version 300 es
+export const fragMeshDepthShader = `#version 300 es
 precision highp int;
 precision highp float;
 uniform float opacity;
@@ -1281,10 +1281,10 @@ vec4 packFloatToVec4i(const float value) {
 }
 void main() {
 	color = packFloatToVec4i(gl_FragCoord.z);
-}`;
+}`
 
-//ToonShader https://prideout.net/blog/old/blog/index.html@tag=toon-shader.html
-export var fragMeshToonShader = `#version 300 es
+// ToonShader https://prideout.net/blog/old/blog/index.html@tag=toon-shader.html
+export const fragMeshToonShader = `#version 300 es
 precision highp int;
 precision highp float;
 uniform float opacity;
@@ -1327,12 +1327,12 @@ void main() {
 	vec3 d = max(df, 0.0) * vClr.rgb * diffuse;
 	color.rgb = a + d + (specular * sf);
 	color.a = opacity;
-}`;
+}`
 
-//unused: requires gl.Disable(GL_DEPTH_TEST)
+// unused: requires gl.Disable(GL_DEPTH_TEST)
 // however, depth test must be ENABLED for meshes not using this shader
 // since fragments computed in parallel, this leads to artifacts when multiple meshes loaded with different shaders
-/*export var fragMeshXRayShader = `#version 300 es
+/* export var fragMeshXRayShader = `#version 300 es
 precision highp int;
 precision highp float;
 uniform float opacity;
@@ -1349,10 +1349,10 @@ void main() {
 	float backface = 1.0 - step(0.0, vN.z);
 	opac = mix(opac, 0.0, backface * float(DimBackfaces)); //reverse normal if backface AND two-sided lighting
 	color = vec4(opac * vClr.rgb, opac);
-}`;*/
+}`; */
 
-//outline
-export var fragMeshOutlineShader = `#version 300 es
+// outline
+export const fragMeshOutlineShader = `#version 300 es
 precision highp int;
 precision highp float;
 uniform float opacity;
@@ -1377,10 +1377,10 @@ void main() {
 	float s = specular * pow(max(dot(reflect(l, n), r), 0.0), shininess);
 	color.rgb = a + d + s;
 	color.a = opacity;
-}`;
+}`
 
-//Phong headlight shader for edge enhancement, opposite of fresnel rim lighting
-export var fragMeshEdgeShader = `#version 300 es
+// Phong headlight shader for edge enhancement, opposite of fresnel rim lighting
+export const fragMeshEdgeShader = `#version 300 es
 precision highp int;
 precision highp float;
 uniform float opacity;
@@ -1399,10 +1399,10 @@ void main() {
 	vec3 d = lightNormDot * vClr.rgb * diffuse;
 	float s = specular * pow(max(dot(reflect(l, n), r), 0.0), shininess);
 	color = vec4(d + s, opacity);
-}`;
+}`
 
-//Phong: default
-export var fragMeshShader = `#version 300 es
+// Phong: default
+export const fragMeshShader = `#version 300 es
 precision highp int;
 precision highp float;
 uniform float opacity;
@@ -1423,10 +1423,10 @@ void main() {
 	vec3 d = max(lightNormDot, 0.0) * vClr.rgb * diffuse;
 	float s = specular * pow(max(dot(reflect(l, n), r), 0.0), shininess);
 	color = vec4(a + d + s, opacity);
-}`;
+}`
 
-//Matcap: modulate mesh color with spherical matcap image
-export var fragMeshMatcapShader = `#version 300 es
+// Matcap: modulate mesh color with spherical matcap image
+export const fragMeshMatcapShader = `#version 300 es
 precision highp int;
 precision highp float;
 uniform float opacity;
@@ -1440,10 +1440,10 @@ void main() {
 	uv.y = 1.0 - uv.y;
 	vec3 clr = texture(matCap,uv.xy).rgb * vClr.rgb;
 	color = vec4(clr, opacity);
-}`;
+}`
 
-//matte: same as phong without specular and a bit more diffuse
-export var fragMeshMatteShader = `#version 300 es
+// matte: same as phong without specular and a bit more diffuse
+export const fragMeshMatteShader = `#version 300 es
 precision highp int;
 precision highp float;
 uniform float opacity;
@@ -1460,10 +1460,10 @@ void main() {
 	vec3 a = vClr.rgb * ambient;
 	vec3 d = max(lightNormDot, 0.0) * vClr.rgb * diffuse;
 	color = vec4(a + d, opacity);
-}`;
+}`
 
-//Hemispheric
-export var fragMeshHemiShader = `#version 300 es
+// Hemispheric
+export const fragMeshHemiShader = `#version 300 es
 precision highp int;
 precision highp float;
 uniform float opacity;
@@ -1489,9 +1489,9 @@ void main() {
 	vec3 d = max(lightNormDot, 0.0) * vClr.rgb * diffuse;
 	float s = specular * pow(max(dot(reflect(l, n), r), 0.0), shininess);
 	color = vec4(a + d + s, opacity);
-}`;
+}`
 
-export var fragMeshShaderSHBlue = `#version 300 es
+export const fragMeshShaderSHBlue = `#version 300 es
 precision highp int;
 precision highp float;
 uniform float opacity;
@@ -1545,9 +1545,9 @@ void main() {
 	vec3 a = vClr.rgb * ambient;
 	vec3 d = vClr.rgb * diffuse * SH(-reflect(n, vec3(l.x, l.y, -l.z)) );
 	color = vec4(a + d + s, opacity);
-}`;
+}`
 
-export var vertFlatMeshShader = `#version 300 es
+export const vertFlatMeshShader = `#version 300 es
 layout(location=0) in vec3 pos;
 layout(location=1) in vec4 norm;
 layout(location=2) in vec4 clr;
@@ -1561,9 +1561,9 @@ void main(void) {
 	vN = normalize((normMtx * vec4(norm.xyz,1.0)).xyz);
 	//vV = -vec3(modelMtx*vec4(pos,1.0));
 	vClr = clr;
-}`;
+}`
 
-export var fragFlatMeshShader = `#version 300 es
+export const fragFlatMeshShader = `#version 300 es
 precision highp int;
 precision highp float;
 uniform float opacity;
@@ -1584,9 +1584,9 @@ void main() {
 	vec3 d = max(lightNormDot, 0.0) * vClr.rgb * diffuse;
 	float s = specular * pow(max(dot(reflect(l, n), r), 0.0), shininess);
 	color = vec4(a + d + s, opacity);
-}`;
+}`
 
-export var fragVolumePickingShader =
+export const fragVolumePickingShader =
   `#version 300 es
 #line 1260
 //precision highp int;
@@ -1656,11 +1656,11 @@ void main() {
 		}
 		samplePos += deltaDirFast; //advance ray position
 	}
-	//if (fColor.a == 0.0) discard; //no hit in either background or overlays
+	//if (fColor.a === 0.0) discard; //no hit in either background or overlays
 	//you only get here if there is a hit with the background that is closer than any overlay
-}`;
+}`
 
-export var vertOrientCubeShader = `#version 300 es
+export const vertOrientCubeShader = `#version 300 es
 // an attribute is an input (in) to a vertex shader.
 // It will receive data from a buffer
 layout(location=0)  in vec3 a_position;
@@ -1675,18 +1675,18 @@ void main() {
 	gl_Position = u_matrix * vec4(pos);
 	vColor = a_color;
 }
-`;
+`
 
-export var fragOrientCubeShader = `#version 300 es
+export const fragOrientCubeShader = `#version 300 es
 precision highp float;
 uniform vec4 u_color;
 in vec3 vColor;
 out vec4 outColor;
 void main() {
 	outColor = vec4(vColor, 1.0);
-}`;
+}`
 
-export var vertPassThroughShader = `#version 300 es
+export const vertPassThroughShader = `#version 300 es
 #line 1359
 precision highp int;
 precision highp float;
@@ -1696,9 +1696,9 @@ void main() {
 	TexCoord = vPos.xy;
 	vec2 viewCoord = (vPos.xy - 0.5) * 2.0;
 	gl_Position = vec4((vPos.xy - 0.5) * 2.0, 0.0, 1.0);
-}`;
+}`
 
-export var fragPassThroughShader = `#version 300 es
+export const fragPassThroughShader = `#version 300 es
 precision highp int;
 precision highp float;
 in vec2 TexCoord;
@@ -1707,9 +1707,9 @@ uniform float coordZ;
 uniform lowp sampler3D in3D;
 void main(void) {
  FragColor = texture(in3D, vec3(TexCoord.xy, coordZ));
-}`;
+}`
 
-export var blurVertShader = `#version 300 es
+export const blurVertShader = `#version 300 es
 #line 286
 precision highp int;
 precision highp float;
@@ -1718,9 +1718,9 @@ out vec2 TexCoord;
 void main() {
     TexCoord = vPos.xy;
     gl_Position = vec4( (vPos.xy-vec2(0.5,0.5))* 2.0, 0.0, 1.0);
-}`;
+}`
 
-export var blurFragShader = `#version 300 es
+export const blurFragShader = `#version 300 es
 #line 298
 precision highp int;
 precision highp float;
@@ -1742,9 +1742,9 @@ void main(void) {
  samp += texture(intensityVol,vx+vec3(-dX,-dY,+dZ));
  samp += texture(intensityVol,vx+vec3(-dX,-dY,-dZ));
  FragColor = samp*0.125;
-}`;
+}`
 
-export var sobelFragShader = `#version 300 es
+export const sobelFragShader = `#version 300 es
 #line 323
 precision highp int;
 precision highp float;
@@ -1774,4 +1774,4 @@ void main(void) {
   gradientSample.rgb = normalize(gradientSample.rgb);
   gradientSample.rgb =  (gradientSample.rgb * 0.5)+0.5;
   FragColor = gradientSample;
-}`;
+}`

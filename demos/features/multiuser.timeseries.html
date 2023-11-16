@@ -107,7 +107,7 @@
         nv1.setFrame4D(nv1.volumes[0].id, currentVol);
       }
       function animateVolume() {
-        if (animationTimer == null)
+        if (animationTimer === null)
           animationTimer = setInterval(doAnimate, 100);
         else {
           clearInterval(animationTimer);

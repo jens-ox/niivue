@@ -8,7 +8,7 @@ test("loadDrawingDocument", async () => {
     let nv = new niivue.Niivue();
     await nv.attachTo("gl", false);
     await nv.loadDocumentFromUrl("./images/document/niivue.drawing.nvd");
-    return nv.drawBitmap != null;
+    return nv.drawBitmap !== null;
   });
   expect(isDrawingPresent).toBe(true);
   await snapshot();
