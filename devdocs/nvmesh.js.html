@@ -110,7 +110,7 @@ export class NVMeshFromUrlOptions {
     rgba255 = [255, 255, 255, 255],
     visible = true,
     layers = [],
-    colorbarVisible = true
+    colorbarVisible = true,
   ) {
     this.url = url;
     this.gl = gl;
@@ -154,7 +154,7 @@ export class NVMesh {
     dpg = null,
     dps = null,
     dpv = null,
-    colorbarVisible = true
+    colorbarVisible = true,
   ) {
     this.name = name;
     this.colorbarVisible = colorbarVisible;
@@ -249,7 +249,7 @@ export class NVMesh {
           let v = vec3.fromValues(
             pts[j + 0] - pts[j + 3],
             pts[j + 1] - pts[j + 4],
-            pts[j + 2] - pts[j + 5]
+            pts[j + 2] - pts[j + 5],
           );
           len += vec3.len(v);
         }
@@ -287,7 +287,7 @@ export class NVMesh {
       let v = vec3.fromValues(
         Math.abs(x1 - x2),
         Math.abs(y1 - y2),
-        Math.abs(z1 - z2)
+        Math.abs(z1 - z2),
       );
       vec3.normalize(v, v);
       let r = ditherFrac - ditherHalf;
@@ -396,7 +396,7 @@ export class NVMesh {
           let RGBA = rgb2int32(
             this.rgba255[0],
             this.rgba255[1],
-            this.rgba255[2]
+            this.rgba255[2],
           );
           let vStart = offsetPt0[i]; //first vertex in streamline
           let vEnd = offsetPt0[i + 1] - 1; //last vertex in streamline
@@ -421,7 +421,7 @@ export class NVMesh {
           pts[v3 + 4],
           pts[v3 + 5],
           pts[v3 + 6],
-          ditherFrac
+          ditherFrac,
         );
         let v4 = vStart * 4 + 3; //+3: fill 4th component colors: XYZC = 0123
         while (v3 &lt; vEnd3) {
@@ -436,7 +436,7 @@ export class NVMesh {
             pts[v3 + 3],
             pts[v3 + 4],
             pts[v3 + 5],
-            ditherFrac
+            ditherFrac,
           );
         }
         posClrU32[v4] = posClrU32[v4 - 4];
@@ -456,7 +456,7 @@ export class NVMesh {
           pts[vEnd3],
           pts[vEnd3 + 1],
           pts[vEnd3 + 2],
-          dither * Math.random()
+          dither * Math.random(),
         );
         let vStart4 = vStart * 4 + 3; //+3: fill 4th component colors: XYZC = 0123
         let vEnd4 = vEnd * 4 + 3;
@@ -485,7 +485,7 @@ export class NVMesh {
     gl.bufferData(
       gl.ELEMENT_ARRAY_BUFFER,
       new Uint32Array(indices),
-      gl.STATIC_DRAW
+      gl.STATIC_DRAW,
     );
   } // updateFibers()
 
@@ -513,7 +513,7 @@ export class NVMesh {
     let lut = cmapper.colormap(json.nodeColormap, this.colormapInvert);
     let lutNeg = cmapper.colormap(
       json.nodeColormapNegative,
-      this.colormapInvert
+      this.colormapInvert,
     );
     let hasNeg = "nodeColormapNegative" in json;
     let min = json.nodeMinColor;
@@ -572,7 +572,7 @@ export class NVMesh {
             pti,
             ptj,
             radius,
-            rgba
+            rgba,
           );
         } //for j
       } //for i
@@ -588,13 +588,13 @@ export class NVMesh {
     gl.bufferData(
       gl.ELEMENT_ARRAY_BUFFER,
       new Int32Array(tris),
-      gl.STATIC_DRAW
+      gl.STATIC_DRAW,
     );
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
       new Float32Array(posNormClr),
-      gl.STATIC_DRAW
+      gl.STATIC_DRAW,
     );
     this.indexCount = tris.length;
   }
@@ -712,15 +712,15 @@ export class NVMesh {
               //sum red, green and blue layers
               additiveRGBA[j4 + 0] = additiveBlend(
                 additiveRGBA[j4 + 0],
-                lut[v255 + 0]
+                lut[v255 + 0],
               );
               additiveRGBA[j4 + 1] = additiveBlend(
                 additiveRGBA[j4 + 1],
-                lut[v255 + 1]
+                lut[v255 + 1],
               );
               additiveRGBA[j4 + 2] = additiveBlend(
                 additiveRGBA[j4 + 2],
-                lut[v255 + 2]
+                lut[v255 + 2],
               );
               additiveRGBA[j4 + 3] = additiveBlend(additiveRGBA[j4 + 3], 255.0);
             } else {
@@ -734,7 +734,7 @@ export class NVMesh {
           let v255s = new Uint8Array(nvtx);
           for (let j = 0; j &lt; nvtx; j++) {
             let v255 = Math.round(
-              (layer.values[j + frameOffset] - layer.cal_min) * scale255
+              (layer.values[j + frameOffset] - layer.cal_min) * scale255,
             );
             if (v255 &lt; 0) continue;
             v255 = Math.min(255.0, v255);
@@ -754,7 +754,7 @@ export class NVMesh {
         if (layer.useNegativeCmap) {
           let lut = cmapper.colormap(
             layer.colormapNegative,
-            layer.colormapInvert
+            layer.colormapInvert,
           );
           if (!layer.isOutlineBorder) {
             let mn = layer.cal_min;
@@ -787,19 +787,19 @@ export class NVMesh {
                 //sum red, green and blue layers
                 additiveRGBA[j4 + 0] = additiveBlend(
                   additiveRGBA[j4 + 0],
-                  lut[v255 + 0]
+                  lut[v255 + 0],
                 );
                 additiveRGBA[j4 + 1] = additiveBlend(
                   additiveRGBA[j4 + 1],
-                  lut[v255 + 1]
+                  lut[v255 + 1],
                 );
                 additiveRGBA[j4 + 2] = additiveBlend(
                   additiveRGBA[j4 + 2],
-                  lut[v255 + 2]
+                  lut[v255 + 2],
                 );
                 additiveRGBA[j4 + 3] = additiveBlend(
                   additiveRGBA[j4 + 3],
-                  255.0
+                  255.0,
                 );
               } else {
                 u8[vtx + 0] = lerp(u8[vtx + 0], lut[v255 + 0], opacity);
@@ -812,7 +812,7 @@ export class NVMesh {
             let v255s = new Uint8Array(nvtx);
             for (let j = 0; j &lt; nvtx; j++) {
               let v255 = Math.round(
-                (-layer.values[j + frameOffset] - layer.cal_min) * scale255
+                (-layer.values[j + frameOffset] - layer.cal_min) * scale255,
               );
               if (v255 &lt; 0) continue;
               v255s[j] = Math.min(255.0, v255);
@@ -854,13 +854,13 @@ export class NVMesh {
     gl.bufferData(
       gl.ELEMENT_ARRAY_BUFFER,
       new Int32Array(this.tris),
-      gl.STATIC_DRAW
+      gl.STATIC_DRAW,
     );
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
       new Float32Array(posNormClr),
-      gl.STATIC_DRAW
+      gl.STATIC_DRAW,
     );
     this.indexCount = this.tris.length;
     this.vertexCount = this.pts.length;
@@ -943,7 +943,7 @@ export class NVMesh {
     name = "",
     // colormap = "",
     opacity = 1.0,
-    visible = true
+    visible = true,
   ) {
     // let rgb255 = [255, 0, 0];
     // if ("color" in json) rgb255 = json.color;
@@ -991,7 +991,7 @@ export class NVMesh {
     name = "",
     // colormap = "",
     opacity = 1.0,
-    visible = true
+    visible = true,
   ) {
     if ("name" in json) name = json.name;
     if (!("nodes" in json)) {
@@ -1007,7 +1007,7 @@ export class NVMesh {
     gl,
     opacity = 1.0,
     rgba255 = [255, 255, 255, 255],
-    visible = true
+    visible = true,
   ) {
     let tris = [];
     let pts = [];
@@ -1026,7 +1026,7 @@ export class NVMesh {
         name,
         "",
         opacity,
-        visible
+        visible,
       );
     if (ext === "JSON")
       return await this.loadConnectomeFromFreeSurfer(
@@ -1035,7 +1035,7 @@ export class NVMesh {
         name,
         "",
         opacity,
-        visible
+        visible,
       );
     rgba255[3] = Math.max(0, rgba255[3]);
     if (ext === "TCK" || ext === "TRK" || ext === "TRX" || ext === "TRACT") {
@@ -1068,7 +1068,7 @@ export class NVMesh {
         "inferno",
         obj.dpg,
         obj.dps,
-        obj.dpv
+        obj.dpv,
       );
     } //is fibers
     if (ext === "GII") {
@@ -1103,7 +1103,7 @@ export class NVMesh {
           opacity, //opacity,
           visible, //visible,
           gl,
-          "inferno"
+          "inferno",
         );
       } //if streamlines, not mesh
     } else if (ext === "SRF") {
@@ -1149,7 +1149,7 @@ export class NVMesh {
       rgba255, //colormap,
       opacity, //opacity,
       visible, //visible,
-      gl
+      gl,
     );
     if ("scalars" in obj &amp;&amp; obj.scalars.length > 0) {
       NVMeshLoaders.readLayer(name, buffer, nvm, opacity, "gray");
@@ -1225,7 +1225,7 @@ export class NVMesh {
       colormapNegative,
       useNegativeCmap,
       cal_min,
-      cal_max
+      cal_max,
     );
   }
 
@@ -1279,7 +1279,7 @@ export class NVMesh {
       gl,
       opacity,
       rgba255,
-      visible
+      visible,
     );
 
     if (!layers || layers.length &lt; 1) return nvmesh;
@@ -1337,7 +1337,7 @@ export class NVMesh {
       opacity,
       rgba255,
       visible,
-      layers
+      layers,
     );
 
     if (!layers || layers.length &lt; 1) return nvmesh;
@@ -1390,7 +1390,7 @@ export class NVMesh {
       opacity,
       rgba255,
       visible,
-      layers
+      layers,
     );
 
     if (!layers || layers.length &lt; 1) return nvmesh;
@@ -1524,7 +1524,7 @@ String.prototype.getBytes = function () {
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.2</a> on Fri Nov 17 2023 10:47:08 GMT+0000 (Coordinated Universal Time) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.2</a> on Fri Nov 17 2023 10:57:36 GMT+0000 (Coordinated Universal Time) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
 </footer>
 
 <script>prettyPrint();</script>

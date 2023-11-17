@@ -277,7 +277,7 @@ export class NVMeshLoaders {
     }
     if (noff === 0 || npt === 0) {
       utiltiesLogger.error(
-        "Failure reading TRX format (no offsets or points)."
+        "Failure reading TRX format (no offsets or points).",
       );
       return;
     }
@@ -417,7 +417,7 @@ export class NVMeshLoaders {
       0,
       0,
       0,
-      1
+      1,
     );
     var n_properties = reader.getInt16(238, true);
     if (n_properties > 0) {
@@ -470,19 +470,19 @@ export class NVMeshLoaders {
           ptx * vox2mmMat[0] +
             pty * vox2mmMat[1] +
             ptz * vox2mmMat[2] +
-            vox2mmMat[3]
+            vox2mmMat[3],
         );
         pts.push(
           ptx * vox2mmMat[4] +
             pty * vox2mmMat[5] +
             ptz * vox2mmMat[6] +
-            vox2mmMat[7]
+            vox2mmMat[7],
         );
         pts.push(
           ptx * vox2mmMat[8] +
             pty * vox2mmMat[9] +
             ptz * vox2mmMat[10] +
-            vox2mmMat[11]
+            vox2mmMat[11],
         );
         if (n_scalars > 0) {
           for (let s = 0; s &lt; n_scalars; s++) {
@@ -661,7 +661,7 @@ export class NVMeshLoaders {
     useNegativeCmap = false,
     cal_min = null,
     cal_max = null,
-    isOutlineBorder = false
+    isOutlineBorder = false,
   ) {
     let layer = [];
     layer.colormapInvert = false;
@@ -765,7 +765,7 @@ export class NVMeshLoaders {
     let nvert = reader.getUint32(2, true);
     if (nvert !== n_vert)
       console.log(
-        "SMP file has " + nvert + " vertices, background mesh has " + n_vert
+        "SMP file has " + nvert + " vertices, background mesh has " + n_vert,
       );
     let nMaps = reader.getUint16(6, true);
     function readStr() {
@@ -906,7 +906,7 @@ export class NVMeshLoaders {
     let n_time = view.getUint32(11, false);
     if (sig0 !== 255 || sig1 !== 255 || sig2 !== 255)
       utiltiesLogger.debug(
-        "Unable to recognize file type: does not appear to be FreeSurfer format."
+        "Unable to recognize file type: does not appear to be FreeSurfer format.",
       );
     if (n_vert !== n_vertex) {
       utiltiesLogger.debug(
@@ -914,7 +914,7 @@ export class NVMeshLoaders {
           n_vertex +
           ")than mesh (" +
           n_vert +
-          ")"
+          ")",
       );
       return;
     }
@@ -1039,7 +1039,7 @@ export class NVMeshLoaders {
     }
     if (nError > 0)
       console.log(
-        `annot vertex colors do not match ${nError} of ${n_vertex} vertices.`
+        `annot vertex colors do not match ${nError} of ${n_vertex} vertices.`,
       );
     for (let i = 0; i &lt; maxstruc; i++) LUT.I[i] = i;
     let colormapLabel = cmapper.makeLabelLut(LUT);
@@ -1284,7 +1284,7 @@ export class NVMeshLoaders {
         let ntri = reader.getInt32(pos, false) - 2; //3 for single triangle, 4 for 2 triangles
         if (i === 0 &amp;&amp; ntri > 65535) {
           alert(
-            "Invalid VTK binary polygons using little-endian data (MRtrix)"
+            "Invalid VTK binary polygons using little-endian data (MRtrix)",
           );
           return null;
         }
@@ -1380,7 +1380,7 @@ export class NVMeshLoaders {
       attr,
       nface,
       nvert,
-      nskip
+      nskip,
     );
     if (magic != 23117) throw new Error("Invalid MZ3 file");
     var isFace = (attr &amp; 1) != 0;
@@ -1402,11 +1402,11 @@ export class NVMeshLoaders {
         isVert * n_vert * 12 +
         isRGBA * n_vert * 4;
       let scalarFloats = Math.floor(
-        (_buffer.byteLength - FSizeWoScalars) / bytesPerScalar
+        (_buffer.byteLength - FSizeWoScalars) / bytesPerScalar,
       );
       if (nvert != n_vert &amp;&amp; scalarFloats % n_vert === 0) {
         console.log(
-          "Issue 729: mz3 mismatch scalar NVERT does not match mesh NVERT"
+          "Issue 729: mz3 mismatch scalar NVERT does not match mesh NVERT",
         );
         nvert = n_vert;
       }
@@ -1420,7 +1420,7 @@ export class NVMeshLoaders {
       throw new Error("Not a mesh MZ3 file (maybe scalar)");
     if (n_vert > 0 &amp;&amp; n_vert !== nvert) {
       console.log(
-        "Layer has " + nvert + "vertices, but background mesh has " + n_vert
+        "Layer has " + nvert + "vertices, but background mesh has " + n_vert,
       );
     }
     var filepos = 16 + nskip;
@@ -1615,7 +1615,7 @@ export class NVMeshLoaders {
     } //if isAscii
     if (vertStride &lt; 12 || indexCountBytes &lt; 1 || indexBytes &lt; 1 || nface &lt; 1)
       console.log(
-        `Malformed ply format: stride ${vertStride} count ${indexCountBytes} iBytes ${indexBytes} iStrideBytes ${indexStrideBytes} iPadBytes ${indexPaddingBytes} faces ${nface}`
+        `Malformed ply format: stride ${vertStride} count ${indexCountBytes} iBytes ${indexBytes} iStrideBytes ${indexStrideBytes} iPadBytes ${indexPaddingBytes} faces ${nface}`,
       );
     var reader = new DataView(buffer);
     var positions = [];
@@ -1931,7 +1931,7 @@ export class NVMeshLoaders {
     let sig1 = view.getUint32(4, false);
     if (sig0 !== 4294966883 || sig1 !== 1919246708)
       utiltiesLogger.debug(
-        "Unable to recognize file type: does not appear to be FreeSurfer format."
+        "Unable to recognize file type: does not appear to be FreeSurfer format.",
       );
     let offset = 0;
     while (view.getUint8(offset) !== 10) offset++;
@@ -2184,7 +2184,7 @@ export class NVMeshLoaders {
     for (var i = 1; i &lt; 8; i++) {
       dim[i] = Math.max(
         Number(reader.getBigInt64(16 + i * 8, isLittleEndian)),
-        1
+        1,
       );
       nvert *= dim[i];
     }
@@ -2318,7 +2318,7 @@ export class NVMeshLoaders {
         indexOffset,
         indexCount,
         indexOffset,
-        this.AnatomicalStructurePrimary
+        this.AnatomicalStructurePrimary,
       );
       //
       return scalars;
@@ -2329,7 +2329,7 @@ export class NVMeshLoaders {
           nvert +
           ") is not a multiple of number of vertices (" +
           n_vert +
-          ")"
+          ")",
       );
       return scalars;
     }
@@ -2408,7 +2408,7 @@ export class NVMeshLoaders {
           nvert +
           ") is not a multiple of number of vertices (" +
           n_vert +
-          ")"
+          ")",
       );
       return scalars;
     }
@@ -2466,7 +2466,7 @@ export class NVMeshLoaders {
           nvert +
           ") is not a multiple of number of vertices (" +
           n_vert +
-          ")"
+          ")",
       );
       return scalars;
     }
@@ -2549,7 +2549,7 @@ export class NVMeshLoaders {
             voxoffset += len;
             let num_entries_to_read = reader.getInt32(
               (voxoffset += 4),
-              isLittleEndian
+              isLittleEndian,
             );
             if (num_entries_to_read &lt; 0) return scalars;
             //Allocate our table.
@@ -2804,7 +2804,7 @@ export class NVMeshLoaders {
             rgba255,
             radius,
             translation,
-            rgba
+            rgba,
           );
         } else {
           // https://www.andre-gaschler.com/rotationconverter/
@@ -2828,7 +2828,7 @@ export class NVMeshLoaders {
             pti,
             ptj,
             radius,
-            rgba
+            rgba,
           );
         }
       } //while &lt;shape
@@ -3049,7 +3049,7 @@ export class NVMeshLoaders {
                   nvert +
                   ") does not match mesh (" +
                   n_vert +
-                  ")"
+                  ")",
               );
           }
           // eslint-disable-next-line no-inner-declarations
@@ -3104,7 +3104,7 @@ export class NVMeshLoaders {
           if (line.includes("VolGeomC_S")) e = 2;
           if (e &lt; 0) continue;
           FreeSurferTranlate[e] = parseFloat(
-            readBracketTag("&lt;Value>&lt;![CDATA[")
+            readBracketTag("&lt;Value>&lt;![CDATA["),
           );
         }
       }
@@ -3171,7 +3171,7 @@ export class NVMeshLoaders {
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.2</a> on Fri Nov 17 2023 10:47:08 GMT+0000 (Coordinated Universal Time) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 4.0.2</a> on Fri Nov 17 2023 10:57:36 GMT+0000 (Coordinated Universal Time) using the <a href="https://github.com/clenemt/docdash">docdash</a> theme.
 </footer>
 
 <script>prettyPrint();</script>
