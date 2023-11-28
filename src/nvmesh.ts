@@ -4,59 +4,42 @@ import { Log } from './logger.js'
 import { NiivueObject3D } from './niivue-object3D.js' // n.b. used by connectome
 import { cmapper } from './colortables.js'
 import { NVMeshUtilities } from './nvmesh-utilities.js'
-import { NVMeshLoaders } from './nvmesh-loaders.js'
+import { NVMeshLoaders } from './loaders/index.js'
+import { NVConnectome, NVConnectomeOptions } from './nvconnectome.js'
 
 const log = new Log()
 
 /** Enum for text alignment
- * @enum
- * @readonly
  */
-export const MeshType = Object.freeze({
-  MESH: 'mesh',
-  CONNECTOME: 'connectome',
-  FIBER: 'fiber'
-})
+export enum MeshType {
+  MESH = 'mesh',
+  CONNECTOME = 'connectome',
+  FIBER = 'fiber'
+}
 
-/**
- * @typedef {Object} NVMeshLayer
- * @property {string} url
- * @property {number} opacity
- * @property {string} colormap
- * @property {string} colormapNegative
- * @property {boolean} useNegativeCmap
- * @property {number} cal_min
- * @property {number} cal_max
- */
+type NVMeshLayer = {
+  url: string
+  opacity: number
+  colormap: string
+  colormapNegative: string
+  useNegativeCmap: boolean
+  cal_min: number
+  cal_max: number
+}
 
-/**
- * @typedef {Object} NVMeshFromUrlOptions
- * @property {string} url
- * @property {WebGL2RenderingContext} gl
- * @property {string} name
- * @property {number} opacity
- * @property {number[]} rgba255
- * @property {boolean} visible
- * @property {NVMeshLayer[]} layers
- */
-
-/**
- *
- * @constructor
- * @param {string} url - url mesh will be loaded from
- * @param {WebGL2RenderingContext} gl
- * @param {string} name
- * @param {number} opacity
- * @param {number[]} rgba255
- * @param {boolean} visible
- * @param {NVMeshLayer[]} layers
- * @returns {NVMeshFromUrlOptions}
- *
- */
 export class NVMeshFromUrlOptions {
+  name: string
+  url: string
+  opacity: number
+  gl: WebGL2RenderingContext | null
+  rgba255: number[]
+  visible: boolean
+  layers: NVMeshLayer[]
+  colorbarVisible: boolean
+
   constructor(
     url = '',
-    gl = null,
+    gl: WebGL2RenderingContext | null = null,
     name = '',
     opacity = 1.0,
     rgba255 = [255, 255, 255, 255],
@@ -94,18 +77,53 @@ export class NVMeshFromUrlOptions {
  * @property {array} dpv Data per vertex for tractography, see TRK format.  Default is null (not tractograpgy)
  */
 export class NVMesh {
+  id: string
+  name: string
+  colorbarVisible: boolean
+  furthestVertexFromOrigin: number
+  extentsMin: number | number[]
+  extentsMax: number | number[]
+  opacity: number
+  visible: boolean
+  meshShaderIndex: number
+  indexBuffer: WebGLBuffer
+  vertexBuffer: WebGLBuffer
+  vao: WebGLVertexArrayObject
+  offsetPt0: number[] | null = null
+  hasConnectome = false
+  colormapInvert = false
+  fiberGroupColormap = null
+  layers: NVMeshLayer[] = []
+  type = MeshType.MESH
+
+  tris: number[]
+  pts: number[]
+
+  rgba255: number[]
+  fiberLength = 2
+  fiberDither = 0.1
+  fiberColor = 'Global'
+  fiberDecimationStride = 1 // e.g. if 2 the 50% of streamlines visible, if 3 then 1/3rd
+  fiberMask = [] // provide method to show/hide specific fibers
+  colormap: NVConnectome | null = null
+  dpg: number[] | null = null
+  dps: number[] | null = null
+  dpv: number[] | null = null
+
+  connectome: NVConnectome | null = null
+
   constructor(
-    pts,
-    tris,
+    pts: number[],
+    tris: number[],
     name = '',
     rgba255 = [255, 255, 255, 255],
     opacity = 1.0,
     visible = true,
-    gl,
-    connectome = null,
-    dpg = null,
-    dps = null,
-    dpv = null,
+    gl: WebGL2RenderingContext,
+    connectome: NVConnectomeOptions | null = null,
+    dpg: number[] | null = null,
+    dps: number[] | null = null,
+    dpv: number[] | null = null,
     colorbarVisible = true
   ) {
     this.name = name
@@ -118,23 +136,15 @@ export class NVMesh {
     this.opacity = opacity > 1.0 ? 1.0 : opacity // make sure opacity can't be initialized greater than 1 see: #107 and #117 on github
     this.visible = visible
     this.meshShaderIndex = 0
-    this.indexBuffer = gl.createBuffer()
-    this.vertexBuffer = gl.createBuffer()
-    this.vao = gl.createVertexArray()
-    this.offsetPt0 = null
-    this.hasConnectome = false
-    this.colormapInvert = false
-    this.fiberGroupColormap = null
+    this.indexBuffer = gl.createBuffer()!
+    this.vertexBuffer = gl.createBuffer()!
+    this.vao = gl.createVertexArray()!
+
     this.pts = pts
-    this.layers = []
-    this.type = MeshType.MESH
+
     if (rgba255[3] < 1) {
       this.rgba255 = rgba255
-      this.fiberLength = 2
-      this.fiberDither = 0.1
-      this.fiberColor = 'Global'
-      this.fiberDecimationStride = 1 // e.g. if 2 the 50% of streamlines visible, if 3 then 1/3rd
-      this.fiberMask = [] // provide method to show/hide specific fibers
+
       this.colormap = connectome
       this.dpg = dpg
       this.dps = dps
@@ -157,7 +167,7 @@ export class NVMesh {
     if (connectome) {
       this.connectome = connectome
       this.hasConnectome = true
-      const keysArray = Object.keys(connectome)
+      const keysArray = Object.keys(connectome) as keyof NVConnectome
       for (let i = 0, len = keysArray.length; i < len; i++) {
         this[keysArray[i]] = connectome[keysArray[i]]
       }

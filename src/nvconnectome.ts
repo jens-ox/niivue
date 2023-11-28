@@ -6,33 +6,52 @@ import { cmapper } from './colortables.js'
 import { NVLabel3D, LabelTextAlignment } from './nvlabel.js'
 
 /**
- * Representes the vertices of a connectome
- * @typedef {Object} NVConnectomeNode
- * @property {string} name - name of node
- * @property {number} x
- * @property {number} y
- * @property {number} z
- * @property {number} colorValue - color value of node (actual color determined by colormap)
- * @property {number} sizeValue - size value of node (actual size determined by node scale times this value in mms)
- * @property {NVLabel3D} label
+ * Represents the vertices of a connectome
+ * @property name name of node
+ * @property colorValue color value of node (actual color determined by colormap)
+ * @property sizeValue size value of node (actual size determined by node scale times this value in mms)
  */
+type NVConnectomeNode = {
+  name: string
+  x: number
+  y: number
+  z: number
+  colorValue: number
+  sizeValue: number
+  label: NVLabel3D
+}
 
 /**
  * Represents edges between connectome nodes
- * @typedef {Object} NVConnectomeEdge
- * @property {number[]} firstNodeIndex - index of first node
- * @property {number[]} secondNodeIndex - index of second node
- * @property {number} colorValue - color value to determin color of edge based on color map
  */
 export class NVConnectomeEdge {
-  contructor(first, second, colorValue) {
+  first: number[] // index of the first node
+  second: number[] // index of the second node
+  colorValue: number // color value to determin color of edge based on color map
+
+  constructor(first: number[], second: number[], colorValue: number) {
     this.first = first
     this.second = second
     this.colorValue = colorValue
   }
 }
 
-const defaultOptions = {
+export type NVConnectomeOptions = {
+  name: string
+  nodeColormap: string
+  nodeColormapNegative: string
+  nodeMinColor: number
+  nodeMaxColor: number
+  nodeScale: number // scale factor for node, e.g. if 2 and a node has size 3, a 6mm ball is drawn
+  edgeColormap: string
+  edgeColormapNegative: string
+  edgeMin: number
+  edgeMax: number
+  edgeScale: number
+  legendLineThickness: number
+}
+
+const defaultOptions: NVConnectomeOptions = {
   name: 'untitled connectome',
   nodeColormap: 'warm',
   nodeColormapNegative: 'winter',
@@ -43,39 +62,19 @@ const defaultOptions = {
   edgeColormapNegative: 'winter',
   edgeMin: 2,
   edgeMax: 6,
-  edgeScale: 1
+  edgeScale: 1,
+  legendLineThickness: 0
 }
 
-/**
- * @typedef {Object} NVConnectomeOptions
- * @property {string} name
- * @property {string} nodeColormap
- * @property {string} nodeColormapNegative
- * @property {number} nodeMinColor
- * @property {number} nodeMaxColor
- * @property {number} nodeScale - scale factor for node, e.g. if 2 and a node has size 3, a 6mm ball is drawn
- * @property {string} edgeColormap
- * @property {string} edgeColormapNegative
- * @property {number} edgeMin
- * @property {number} edgeMax
- * @property {number} edgeScale
- * @property {number} legendLineThickness
- */
-// export class NVConnectomeOptions extends NVMeshOptions {}
 /**
  * Represents a connectome
  */
 export class NVConnectome extends NVMesh {
-  /**
-   * @constructor
-   * @param {NVConnectomeOptions} connectome
-   */
-  constructor(gl, connectome) {
+  gl: WebGL2RenderingContext
+
+  constructor(gl: WebGL2RenderingContext, connectome: NVConnectomeOptions) {
     super([], [], connectome.name, [], 1.0, true, gl, connectome)
     this.gl = gl
-    // this.nodes = connectome.nodes;
-    // this.edges = connectome.edges;
-    // this.options = { ...defaultOptions, ...connectome };
     this.type = MeshType.CONNECTOME
     if (this.nodes) {
       this.updateLabels()
