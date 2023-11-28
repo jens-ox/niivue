@@ -1,51 +1,51 @@
-/* not included in public docs
+enum LogLevel {
+  DEBUG = 'debug',
+  INFO = 'info',
+  WARN = 'warn',
+  ERROR = 'error'
+}
+
+/** not included in public docs
  * @class Log
  * @type Log
- * @param {number} logLevel
+ * @param logLevel lowest level to log
  */
 export class Log {
-  static LOGGING_ON = true
-  static LOGGING_OFF = false
   static LOG_PREFIX = 'NiiVue:'
 
-  constructor(logLevel) {
-    // log levels:
-    // - 'debug'
-    // - 'info'
-    // - 'warn'
-    // - 'error'
-    this.logLevel = logLevel // true or false
+  logLevel: LogLevel
 
-    // logs take the form of `NiiVue: <unix_time> ...arguments` when printed to the console
+  constructor(logLevel = LogLevel.ERROR) {
+    this.logLevel = logLevel
   }
 
   getTimeStamp() {
-    return `${this.LOG_PREFIX} `
+    return `${Log.LOG_PREFIX} `
   }
 
-  debug() {
-    if (this.logLevel === Log.LOGGING_ON) {
-      console.log(this.getTimeStamp(), 'DEBUG', ...arguments)
+  debug(...args: unknown[]) {
+    if (this.logLevel === LogLevel.DEBUG) {
+      console.log(this.getTimeStamp(), 'DEBUG', ...args)
     }
   }
 
-  info() {
-    if (this.logLevel === Log.LOGGING_ON) {
-      console.log(this.getTimeStamp(), 'INFO', ...arguments)
+  info(...args: unknown[]) {
+    if ([LogLevel.DEBUG, LogLevel.INFO].includes(this.logLevel)) {
+      console.log(this.getTimeStamp(), 'INFO', ...args)
     }
   }
 
-  warn() {
-    if (this.logLevel === Log.LOGGING_ON) {
-      console.warn(this.getTimeStamp(), 'WARN', ...arguments)
+  warn(...args: unknown[]) {
+    if ([LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN].includes(this.logLevel)) {
+      console.warn(this.getTimeStamp(), 'WARN', ...args)
     }
   }
 
-  error() {
-    console.error(this.getTimeStamp(), 'ERROR', ...arguments)
+  error(...args: unknown[]) {
+    console.error(this.getTimeStamp(), 'ERROR', ...args)
   }
 
-  setLogLevel(logLevel) {
+  setLogLevel(logLevel: LogLevel) {
     this.logLevel = logLevel
   }
 }
