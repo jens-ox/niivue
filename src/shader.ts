@@ -57,7 +57,7 @@ export const getGLExtension = function (gl: WebGL2RenderingContext, ext: string)
 
 export class Shader {
   program: WebGLProgram
-  uniforms: Record<string, WebGLUniformLocation | -1> = {}
+  uniforms: Record<string, WebGLUniformLocation | null> = {}
 
   constructor(gl: WebGL2RenderingContext, vertexSource: string, fragmentSource: string) {
     this.program = compileShader(gl, vertexSource, fragmentSource)
@@ -74,7 +74,7 @@ export class Shader {
         if (m === null || m.length < 2) {
           throw new Error(`invalid vertex unif: ${unif}`)
         }
-        this.uniforms[m[1]] = -1
+        this.uniforms[m[1]] = null
       })
     }
     if (fragUnifs) {
@@ -83,16 +83,18 @@ export class Shader {
         if (m === null || m.length < 2) {
           throw new Error(`invalid fragment unif: ${unif}`)
         }
-        this.uniforms[m[1]] = -1
+        this.uniforms[m[1]] = null
       })
     }
 
     for (const unif in this.uniforms) {
       const uniformLocation = gl.getUniformLocation(this.program, unif)
       if (uniformLocation === null) {
-        throw new Error(`could not get uniform location: ${unif}`)
+        console.warn('could not get unform location:', unif)
+        this.uniforms[unif] = null
+      } else {
+        this.uniforms[unif] = uniformLocation
       }
-      this.uniforms[unif] = uniformLocation
     }
   }
 
