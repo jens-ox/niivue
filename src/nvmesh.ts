@@ -1,10 +1,10 @@
 // import * as gifti from "gifti-reader-js/release/current/gifti-reader";
 import { vec3 } from 'gl-matrix'
-import { Log } from './logger'
+import { Log } from './logger.js'
 import { NiivueObject3D } from './niivue-object3D.js' // n.b. used by connectome
-import { cmapper } from './colortables'
-import { NVMeshUtilities } from './nvmesh-utilities'
-import { NVMeshLoaders } from './nvmesh-loaders'
+import { cmapper } from './colortables.js'
+import { NVMeshUtilities } from './nvmesh-utilities.js'
+import { NVMeshLoaders } from './nvmesh-loaders.js'
 
 const log = new Log()
 

@@ -1,8 +1,8 @@
 import { mat4, vec4 } from 'gl-matrix'
 import { decompressSync, unzipSync } from 'fflate/browser'
-import { Log } from './logger'
-import { cmapper } from './colortables'
-import { NiivueObject3D } from './niivue-object3D'
+import { Log } from './logger.js'
+import { cmapper } from './colortables.js'
+import { NiivueObject3D } from './niivue-object3D.js'
 
 /**
  * Global logger for utilities

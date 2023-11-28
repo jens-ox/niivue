@@ -58,17 +58,17 @@ import {
 import { orientCube } from '../orientCube.js'
 import { NiivueObject3D } from '../niivue-object3D.js'
 import { MeshType, NVMesh, NVMeshFromUrlOptions } from '../nvmesh.js'
-import { Log } from '../logger'
+import { Log } from '../logger.js'
 import defaultMatCap from '../matcaps/Shiny.jpg'
 import defaultFontPNG from '../fonts/Roboto-Regular.png'
 import defaultFontMetrics from '../fonts/Roboto-Regular.json'
-import { cmapper } from '../colortables'
+import { cmapper } from '../colortables.js'
 import { NVDocument, SLICE_TYPE, DRAG_MODE, MULTIPLANAR_TYPE, DEFAULT_OPTIONS } from '../nvdocument.js'
 
 import { NVUtilities } from '../nvutilities.js'
 import { LabelTextAlignment, LabelLineTerminator, NVLabel3D } from '../nvlabel.js'
 import { NVConnectome } from '../nvconnectome.js'
-import { NVImage, NVImageFromUrlOptions, NVIMAGE_TYPE } from '../nvimage'
+import { NVImage, NVImageFromUrlOptions, NVIMAGE_TYPE } from '../nvimage/index.js'
 import {
   clamp,
   decodeRLE,
@@ -84,10 +84,10 @@ import {
   unpackFloatFromVec4i
 } from './utils.js'
 export { NVMesh, NVMeshFromUrlOptions } from '../nvmesh.js'
-export { NVController } from '../nvcontroller'
-export { ColorTables as colortables, cmapper } from '../colortables'
+export { NVController } from '../nvcontroller.js'
+export { ColorTables as colortables, cmapper } from '../colortables.js'
 
-export { NVImage, NVImageFromUrlOptions } from '../nvimage'
+export { NVImage, NVImageFromUrlOptions } from '../nvimage/index.js'
 export { NVDocument, SLICE_TYPE } from '../nvdocument.js'
 export { NVUtilities } from '../nvutilities.js'
 export { LabelTextAlignment, LabelLineTerminator, NVLabel3DStyle, NVLabel3D } from '../nvlabel.js'

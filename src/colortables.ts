@@ -1,4 +1,4 @@
-import * as cmaps from './cmaps'
+import * as cmaps from './cmaps/index.js'
 
 export class ColorTables {
   gamma = 1.0

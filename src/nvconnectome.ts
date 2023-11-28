@@ -1,9 +1,9 @@
-import { NVMesh, MeshType } from './nvmesh'
-import { NVUtilities } from './nvutilities'
-import { NiivueObject3D } from './niivue-object3D'
-import { NVMeshUtilities } from './nvmesh-utilities'
-import { cmapper } from './colortables'
-import { NVLabel3D, LabelTextAlignment } from './nvlabel'
+import { NVMesh, MeshType } from './nvmesh.js'
+import { NVUtilities } from './nvutilities.js'
+import { NiivueObject3D } from './niivue-object3D.js'
+import { NVMeshUtilities } from './nvmesh-utilities.js'
+import { cmapper } from './colortables.js'
+import { NVLabel3D, LabelTextAlignment } from './nvlabel.js'
 
 /**
  * Representes the vertices of a connectome

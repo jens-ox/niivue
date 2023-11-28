@@ -1,5 +1,5 @@
 import { mat4, vec3, vec4 } from 'gl-matrix'
-import { Log } from '../logger'
+import { Log } from '../logger.js'
 
 const log = new Log()
 

@@ -1,8 +1,8 @@
 // Disabled warnings because of issue with JSDoc https://github.com/microsoft/TypeScript/issues/14377
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { NVImageFromUrlOptions } from './nvimage'
+import { NVImageFromUrlOptions } from './nvimage/index.js'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { NVMeshFromUrlOptions } from './nvmesh'
+import { NVMeshFromUrlOptions } from './nvmesh.js'
 
 export const UPDATE = 'update'
 export const CREATE = 'create'
