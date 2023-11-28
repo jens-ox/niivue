@@ -8,6 +8,7 @@ module.exports = {
   parser: '@typescript-eslint/parser',
   plugins: ['@typescript-eslint', 'prettier'],
   rules: {
+    'no-unreachable': 'error',
     curly: ['error', 'all'],
     camelcase: 'off',
     'import/order': 'error',
