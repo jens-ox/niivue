@@ -1,5 +1,6 @@
 import { vec3 } from 'gl-matrix'
 import { Log } from '../logger.js'
+import { NiftiHeader } from '../types.js'
 
 const log = new Log()
 
@@ -191,7 +192,7 @@ const defaultFromUrlOptions = {
   colormapLabel: []
 }
 
-export const imnmageFromUrlOptions = (
+export const imageFromUrlOptions = (
   opts: Partial<Omit<NVImageFromUrlOptions, 'url'>> & { url: string }
 ): NVImageFromUrlOptions => ({
   ...defaultFromUrlOptions,
@@ -268,7 +269,7 @@ function str2Buffer(str: string): number[] {
 
 // save NIfTI header into UINT8 array for saving to disk
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TODO add typings for Nifti header
-export function hdrToArrayBuffer(hdr: Record<string, any>, isDrawing8 = false): ArrayBuffer {
+export function hdrToArrayBuffer(hdr: NiftiHeader, isDrawing8 = false): ArrayBuffer {
   const SHORT_SIZE = 2
   const FLOAT32_SIZE = 4
 

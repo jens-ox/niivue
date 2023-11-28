@@ -68,7 +68,8 @@ import { NVDocument, SLICE_TYPE, DRAG_MODE, MULTIPLANAR_TYPE, DEFAULT_OPTIONS } 
 import { NVUtilities } from '../nvutilities.js'
 import { LabelTextAlignment, LabelLineTerminator, NVLabel3D } from '../nvlabel.js'
 import { NVConnectome } from '../nvconnectome.js'
-import { NVImage, NVImageFromUrlOptions, NVIMAGE_TYPE } from '../nvimage/index.js'
+import { NVImage } from '../nvimage/index.js'
+import { imageFromUrlOptions, NVImageType as NVIMAGE_TYPE } from '../nvimage/utils.js'
 import {
   clamp,
   decodeRLE,
@@ -87,7 +88,7 @@ export { NVMesh, NVMeshFromUrlOptions } from '../nvmesh.js'
 export { NVController } from '../nvcontroller.js'
 export { ColorTables as colortables, cmapper } from '../colortables.js'
 
-export { NVImage, NVImageFromUrlOptions } from '../nvimage/index.js'
+export { NVImage, imageFromUrlOptions } from '../nvimage/index.js'
 export { NVDocument, SLICE_TYPE } from '../nvdocument.js'
 export { NVUtilities } from '../nvutilities.js'
 export { LabelTextAlignment, LabelLineTerminator, NVLabel3DStyle, NVLabel3D } from '../nvlabel.js'
@@ -1703,7 +1704,7 @@ export class Niivue {
     const url = dt.getData('text/uri-list')
     if (url) {
       urlsToLoad.push(url)
-      const imageOptions = new NVImageFromUrlOptions(url)
+      const imageOptions = imageFromUrlOptions({ url })
       const ext = this.getFileExt(url)
       log.debug('dropped ext')
       log.debug(ext)
@@ -2175,7 +2176,7 @@ export class Niivue {
     this.drawClearAllUndoBitmaps()
     let ok = false
     try {
-      const volume = await NVImage.loadFromUrl(new NVImageFromUrlOptions(fnm))
+      const volume = await NVImage.loadFromUrl(imageFromUrlOptions({ url: fnm }))
       if (isBinarize) {
         await this.binarize(volume)
       }

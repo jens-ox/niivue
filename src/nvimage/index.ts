@@ -6,12 +6,13 @@ import { cmapper } from '../colortables.js'
 import { NiivueObject3D } from '../niivue-object3D.js'
 import { Log } from '../logger.js'
 import {
-  NVIMAGE_TYPE,
-  NVImageFromUrlOptions,
+  NVImageType as NVIMAGE_TYPE,
+  imageFromUrlOptions,
   getBestTransform,
   getExtents,
   hdrToArrayBuffer,
-  isPlatformLittleEndian
+  isPlatformLittleEndian,
+  parseImageType
 } from './utils.js'
 const log = new Log()
 
@@ -119,7 +120,7 @@ export class NVImage {
     this.hdr = null
 
     if (imageType === NVIMAGE_TYPE.UNKNOWN) {
-      imageType = NVIMAGE_TYPE.parse(ext)
+      imageType = parseImageType(ext)
     }
 
     this.imageType = imageType
@@ -3163,23 +3164,23 @@ export class NVImage {
   getImageOptions = function () {
     let options = null
     try {
-      options = NVImageFromUrlOptions(
-        '', // url,
-        '', // urlImageData
-        this.name, // name
-        this._colormap, // colormap
-        this.opacity, // opacity
-        this.hdr.cal_min, // cal_min
-        this.hdr.cal_max, // cal_max
-        this.trustCalMinMax, // trustCalMinMax,
-        this.percentileFrac, // percentileFrac
-        this.ignoreZeroVoxels, // ignoreZeroVoxels
-        this.visible, // visible
-        this.useQFormNotSForm, // useQFormNotSForm
-        this.colormapNegative, // colormapNegative
-        this.frame4D,
-        this.imageType // imageType
-      )
+      options = imageFromUrlOptions({
+        url: '', // url,
+        urlImageData: '', // urlImageData
+        name: this.name, // name
+        colormap: this._colormap, // colormap
+        opacity: this.opacity, // opacity
+        cal_min: this.hdr.cal_min, // cal_min
+        cal_max: this.hdr.cal_max, // cal_max
+        trustCalMinMax: this.trustCalMinMax, // trustCalMinMax,
+        percentileFrac: this.percentileFrac, // percentileFrac
+        ignoreZeroVoxels: this.ignoreZeroVoxels, // ignoreZeroVoxels
+        visible: this.visible, // visible
+        useQFormNotSForm: this.useQFormNotSForm, // useQFormNotSForm
+        colormapNegative: this.colormapNegative, // colormapNegative
+        frame4D: this.frame4D,
+        imageType: this.imageType // imageType
+      })
     } catch (e) {
       console.log(e)
     }

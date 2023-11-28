@@ -1,11 +1,7 @@
 import { SessionBus, SessionUser } from './session-bus.js'
 // Disabled warnings because of issue with JSDoc https://github.com/microsoft/TypeScript/issues/14377
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { NVImage, NVImageFromUrlOptions } from './nvimage/index.js'
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { NVMesh, NVMeshFromUrlOptions } from './nvmesh.js'
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Niivue } from './niivue/index.js'
+import { NVImage } from './nvimage/index.js'
+import { NVMesh } from './nvmesh.js'
 
 /**
  * Enum for sync operations
