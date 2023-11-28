@@ -19,33 +19,33 @@ export class Log {
     this.logLevel = logLevel
   }
 
-  getTimeStamp() {
+  getTimeStamp(): string {
     return `${Log.LOG_PREFIX} `
   }
 
-  debug(...args: unknown[]) {
+  debug(...args: unknown[]): void {
     if (this.logLevel === LogLevel.DEBUG) {
       console.log(this.getTimeStamp(), 'DEBUG', ...args)
     }
   }
 
-  info(...args: unknown[]) {
+  info(...args: unknown[]): void {
     if ([LogLevel.DEBUG, LogLevel.INFO].includes(this.logLevel)) {
       console.log(this.getTimeStamp(), 'INFO', ...args)
     }
   }
 
-  warn(...args: unknown[]) {
+  warn(...args: unknown[]): void {
     if ([LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN].includes(this.logLevel)) {
       console.warn(this.getTimeStamp(), 'WARN', ...args)
     }
   }
 
-  error(...args: unknown[]) {
+  error(...args: unknown[]): void {
     console.error(this.getTimeStamp(), 'ERROR', ...args)
   }
 
-  setLogLevel(logLevel: LogLevel) {
+  setLogLevel(logLevel: LogLevel): void {
     this.logLevel = logLevel
   }
 }

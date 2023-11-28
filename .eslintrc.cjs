@@ -12,6 +12,7 @@ module.exports = {
     camelcase: 'off',
     'import/order': 'error',
     'no-use-before-define': 'off',
+    '@typescript-eslint/explicit-function-return-type': 'error',
     '@typescript-eslint/array-type': ['error', { default: 'array-simple' }],
     '@typescript-eslint/no-use-before-define': 'error',
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
