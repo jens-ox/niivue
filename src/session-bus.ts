@@ -1,4 +1,6 @@
-import { webSocket } from 'rxjs/webSocket'
+import { WebSocketSubject, webSocket } from 'rxjs/webSocket'
+
+type Message = Record<string, unknown>
 
 /**
  * @class SessionUser
@@ -10,7 +12,11 @@ import { webSocket } from 'rxjs/webSocket'
  * @param {Map} userProperties
  */
 export class SessionUser {
-  constructor(displayName = undefined, userId = undefined, userKey = undefined, userProperties = undefined) {
+  id: string
+  displayName: string
+  key: string
+  properties: Map<string, string>
+  constructor(displayName?: string, userId?: string, userKey?: string, userProperties?: Map<string, string>) {
     this.id = userId || crypto.randomUUID()
     this.displayName = displayName || `user-${this.id}`
     this.key = userKey || crypto.randomUUID()
@@ -20,33 +26,18 @@ export class SessionUser {
 
 /**
  * Checks if local storage is available
- * @param {string} type type of local storage requested
+ * @param type type of local storage requested
  * @returns {boolean}
  */
-function storageAvailable(type) {
-  let storage
+function storageAvailable(type: 'localStorage' | 'sessionStorage'): boolean {
+  const storage = window[type]
+  const test = 'test'
   try {
-    storage = window[type]
-    const x = '__storage_test__'
-    storage.setItem(x, x)
-    storage.removeItem(x)
+    storage.setItem(test, test)
+    storage.removeItem(test)
     return true
   } catch (e) {
-    return (
-      e instanceof DOMException &&
-      // everything except Firefox
-      (e.code === 22 ||
-        // Firefox
-        e.code === 1014 ||
-        // test name field too, because code might not be present
-        // everything except Firefox
-        e.name === 'QuotaExceededError' ||
-        // Firefox
-        e.name === 'NS_ERROR_DOM_QUOTA_REACHED') &&
-      // acknowledge QuotaExceededError only if there's something already stored
-      storage &&
-      storage.length !== 0
-    )
+    return false
   }
 }
 
@@ -54,21 +45,33 @@ function storageAvailable(type) {
  * @class SessionBus
  * @type SessionBus
  * @description SessionBus is for synchronizing both remote and local instances
- * @constructor
- * @param {string} name
- * @param {SessionUser} user
- * @param {function} onMessageCallback  call back for new messages
- * @param {string} serverURL
  */
 export class SessionBus {
-  constructor(name, user, onMessageCallback, serverURL = '', sessionKey = '') {
+  userList: SessionUser[]
+  user: SessionUser
+  userQueueName?: string
+  userListName?: string
+
+  onMessageCallback: (newMessage: Message) => void
+  isConnectedToServer = false
+  isController = false
+  sessionScene = {}
+  sessionKey: string
+  sessionName: string
+  sessionSceneName: string
+  serverConnection$: WebSocketSubject<Message> | null = null
+
+  constructor(
+    name: string,
+    user: SessionUser,
+    onMessageCallback: (newMessage: Message) => void,
+    serverURL = '',
+    sessionKey = ''
+  ) {
     this.userList = []
     this.user = user || new SessionUser('anonymous')
 
-    this.onMessageCallBack = onMessageCallback
-
-    this.isConnectedToServer = false
-    this.isController = false
+    this.onMessageCallback = onMessageCallback
 
     this.sessionScene = {}
     this.sessionKey = sessionKey || crypto.randomUUID()
@@ -78,14 +81,15 @@ export class SessionBus {
 
     if (serverURL) {
       // remote
-      this.serverConnection$ = null
       this.connectToServer(serverURL, name)
       this.subscribeToServer()
       this.isConnectedToServer = true
-      this.serverConnection$.next({
-        op: SessionBus.MESSAGE.CREATE,
-        key: this.sessionKey
-      })
+      if (this.serverConnection$ !== null) {
+        this.serverConnection$.next({
+          op: 'create',
+          key: this.sessionKey
+        })
+      }
     } else {
       // local
       if (!storageAvailable('localStorage')) {
@@ -107,13 +111,13 @@ export class SessionBus {
     }
   }
 
-  sendSessionMessage(message) {
-    message.from = this.userId
-    if (this.isConnectedToServer) {
+  sendSessionMessage(message: Record<string, unknown>): void {
+    message.from = this.user.id
+    if (this.isConnectedToServer && this.serverConnection$ !== null) {
       this.serverConnection$.next({
         ...message,
         key: this.sessionKey,
-        userKey: this.userKey
+        userKey: this.user.key
       })
     } else {
       this.sendLocalMessage(message)
@@ -123,7 +127,7 @@ export class SessionBus {
   // Remote
   // not included in public docs
   // Internal function to connect to web socket server
-  connectToServer(serverURL, sessionName) {
+  connectToServer(serverURL: string, sessionName: string): void {
     const url = new URL(serverURL)
     url.pathname = 'websockets'
     url.search = '?session=' + sessionName
@@ -132,20 +136,22 @@ export class SessionBus {
   }
 
   // Internal function called after a connection with the server has been made
-  subscribeToServer() {
-    this.serverConnection$.subscribe({
-      next: (msg) => {
-        this.onMessageCallBack(msg)
-      }, // Called whenever there is a message from the server.
-      error: (err) => console.log(err), // Called if at any point WebSocket API signals some kind of error.
-      complete: () => console.log('complete') // Called when connection is closed (for whatever reason).
-    })
+  subscribeToServer(): void {
+    if (this.serverConnection$ !== null) {
+      this.serverConnection$.subscribe({
+        next: (msg) => {
+          this.onMessageCallback(msg)
+        }, // Called whenever there is a message from the server.
+        error: (err) => console.log(err), // Called if at any point WebSocket API signals some kind of error.
+        complete: () => console.log('complete') // Called when connection is closed (for whatever reason).
+      })
+    }
   }
 
-  sendLocalMessage(message) {
+  sendLocalMessage(message: Message): void {
     // add the message for each client
     for (const user of this.userList) {
-      if (user.id === this.userId) {
+      if (user.id === this.user.id) {
         continue
       }
       const userQueueName = `user-${user.id}-q`
@@ -156,21 +162,23 @@ export class SessionBus {
     }
   }
 
-  localStorageEventListener(e) {
+  localStorageEventListener(e: StorageEvent): void {
+    // discard empty events
+    if (!e.newValue) {
+      return
+    }
+
     // is this message for us?
     switch (e.key) {
       case this.userListName:
         {
-          this.userList = JSON.parse(e.newValue)
+          const newUserList = JSON.parse(e.newValue) as SessionUser[]
+          const oldUserList = JSON.parse(e.oldValue ?? '[]') as SessionUser[]
+          this.userList = newUserList
           // compare new and old values
-          const newUsers = JSON.parse(e.newValue).filter(
-            (u) =>
-              !JSON.parse(e.oldValue)
-                .map((o) => o.id)
-                .includes(u.id)
-          )
+          const newUsers = newUserList.filter((u) => !oldUserList.map((o) => o.id).includes(u.id))
           for (const newUser of newUsers) {
-            this.onMessageCallBack({
+            this.onMessageCallback({
               op: 'user joined',
               user: newUser
             })
@@ -181,12 +189,12 @@ export class SessionBus {
         {
           const messages = JSON.parse(e.newValue)
           for (const message of messages) {
-            if (this.onMessageCallBack) {
-              this.onMessageCallBack(message)
+            if (this.onMessageCallback) {
+              this.onMessageCallback(message)
             }
           }
           // reset our message queue
-          localStorage.setItem(this.userQueueName, [])
+          localStorage.setItem(this.userQueueName ?? '', JSON.stringify([]))
         }
         break
     }
