@@ -90,7 +90,6 @@ const defaultOptions: NVConnectomeOptions = {
  */
 export class NVConnectome extends NVMesh {
   gl: WebGL2RenderingContext
-  nodes: unknown
   nodesChanged: EventTarget
 
   constructor(gl: WebGL2RenderingContext, connectome: NVConnectomeOptions) {
