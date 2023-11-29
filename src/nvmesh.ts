@@ -5,7 +5,7 @@ import { NiivueObject3D } from './niivue-object3D.js' // n.b. used by connectome
 import { cmapper } from './colortables.js'
 import { NVMeshUtilities } from './nvmesh-utilities.js'
 import { NVMeshLoaders } from './loaders/index.js'
-import { NVConnectome, NVConnectomeOptions } from './nvconnectome.js'
+import { NVConnectomeOptions } from './nvconnectome.js'
 
 const log = new Log()
 
@@ -58,6 +58,11 @@ export class NVMeshFromUrlOptions {
   }
 }
 
+type Vals = {
+  id: string
+  vals: number[]
+}
+
 /**
  * @class NVMesh
  * @type NVMesh
@@ -96,21 +101,22 @@ export class NVMesh {
   layers: NVMeshLayer[] = []
   type = MeshType.MESH
 
-  tris: number[]
+  tris: number[] = []
   pts: number[]
 
   rgba255: number[]
   fiberLength = 2
+  fiberLengths: number[] = []
   fiberDither = 0.1
   fiberColor = 'Global'
   fiberDecimationStride = 1 // e.g. if 2 the 50% of streamlines visible, if 3 then 1/3rd
   fiberMask = [] // provide method to show/hide specific fibers
-  colormap: NVConnectome | null = null
+  colormap: NVConnectomeOptions | null = null
   dpg: number[] | null = null
   dps: number[] | null = null
   dpv: number[] | null = null
 
-  connectome: NVConnectome | null = null
+  connectome: NVConnectomeOptions | null = null
 
   constructor(
     pts: number[],
@@ -167,8 +173,9 @@ export class NVMesh {
     if (connectome) {
       this.connectome = connectome
       this.hasConnectome = true
-      const keysArray = Object.keys(connectome) as keyof NVConnectome
+      const keysArray = Object.keys(connectome)
       for (let i = 0, len = keysArray.length; i < len; i++) {
+        // TODO: this is highly illegal
         this[keysArray[i]] = connectome[keysArray[i]]
       }
     }
@@ -193,7 +200,7 @@ export class NVMesh {
 
   // not included in public docs
   // internal function filters tractogram to identify which color and visibility of streamlines
-  updateFibers(gl) {
+  updateFibers(gl: WebGL2RenderingContext): void {
     if (!this.offsetPt0 || !this.fiberLength) {
       return
     }
@@ -202,7 +209,7 @@ export class NVMesh {
     const n_count = offsetPt0.length - 1
     const npt = pts.length / 3 // each point has three components: X,Y,Z
     // only once: compute length of each streamline
-    if (!this.fiberLengths) {
+    if (this.fiberLengths.length === 0) {
       this.fiberLengths = []
       for (let i = 0; i < n_count; i++) {
         // for each streamline
@@ -234,7 +241,7 @@ export class NVMesh {
     // fill fiber Color
     const dither = this.fiberDither
     const ditherHalf = dither * 0.5
-    function rgb2int32(r, g, b) {
+    function rgb2int32(r: number, g: number, b: number): number {
       const ditherFrac = dither * Math.random()
       const d = 255.0 * (ditherFrac - ditherHalf)
       r = Math.max(Math.min(r + d, 255.0), 0.0)
@@ -242,7 +249,15 @@ export class NVMesh {
       b = Math.max(Math.min(b + d, 255.0), 0.0)
       return r + (g << 8) + (b << 16)
     }
-    function direction2rgb(x1, y1, z1, x2, y2, z2, ditherFrac) {
+    function direction2rgb(
+      x1: number,
+      y1: number,
+      z1: number,
+      x2: number,
+      y2: number,
+      z2: number,
+      ditherFrac: number
+    ): number {
       // generate color based on direction between two 3D spatial positions
       const v = vec3.fromValues(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2))
       vec3.normalize(v, v)
@@ -256,7 +271,7 @@ export class NVMesh {
     const fiberColor = this.fiberColor.toLowerCase()
     let dps = null
     let dpv = null
-    if (fiberColor.startsWith('dps') && this.dps.length > 0) {
+    if (fiberColor.startsWith('dps') && this.dps && this.dps.length > 0) {
       const n = parseInt(fiberColor.substring(3))
       if (n < this.dps.length && this.dps[n].vals.length === n_count) {
         dps = this.dps[n].vals
@@ -1132,11 +1147,10 @@ export class NVMesh {
     const npt = pts.length / 3
     const ntri = tris.length / 3
     if (ntri < 1 || npt < 3) {
-      alert('Mesh should have at least one triangle and three vertices')
-      return
+      throw new Error('Mesh should have at least one triangle and three vertices')
     }
     if (tris.constructor !== Int32Array) {
-      alert('Expected triangle indices to be of type INT32')
+      throw new Error('Expected triangle indices to be of type INT32')
     }
     const nvm = new NVMesh(
       pts,
@@ -1241,13 +1255,13 @@ export class NVMesh {
 
   /**
    * factory function to load and return a new NVMesh instance from a given URL
-   * @param {string} url the resolvable URL pointing to a nifti image to load
-   * @param {string} [name=''] a name for this image. Default is an empty string
-   * @param {string} [colormap='gray'] a color map to use. default is gray
-   * @param {number} [opacity=1.0] the opacity for this image. default is 1
-   * @param {boolean} [visible=true] whether or not this image is to be visible
-   * @param {NVMeshLayer[]} [layers=[]] layers of the mesh to load
-   * @returns {NVMesh} returns a NVImage instance
+   * @param url the resolvable URL pointing to a nifti image to load
+   * @param name a name for this image. Default is an empty string
+   * @param colormap a color map to use. default is gray
+   * @param opacity the opacity for this image. default is 1
+   * @param visible whether or not this image is to be visible
+   * @param layers layers of the mesh to load
+   * @returns a NVImage instance
    * @example
    * myImage = NVMesh.loadFromUrl('./someURL/mesh.gii') // must be served from a server (local or remote)
    */
@@ -1259,7 +1273,7 @@ export class NVMesh {
     rgba255 = [255, 255, 255, 255],
     visible = true,
     layers = []
-  } = {}) {
+  }): Promise<NVMesh> {
     let urlParts = url.split('/') // split url parts at slash
     if (name === '') {
       try {

@@ -18,7 +18,26 @@ type NVConnectomeNode = {
   z: number
   colorValue: number
   sizeValue: number
-  label: NVLabel3D
+  label?: NVLabel3D
+}
+
+type LegacyNodes = {
+  names: string[]
+  X: number[]
+  Y: number[]
+  Z: number[]
+  Color: number[]
+  Size: number[]
+}
+
+type LegacyConnectome = {
+  nodes: LegacyNodes
+  edges: NVConnectomeEdge[]
+}
+
+type Connectome = {
+  nodes: NVConnectomeNode[]
+  edges: NVConnectomeEdge[]
 }
 
 /**
@@ -71,20 +90,23 @@ const defaultOptions: NVConnectomeOptions = {
  */
 export class NVConnectome extends NVMesh {
   gl: WebGL2RenderingContext
+  nodes: unknown
+  nodesChanged: EventTarget
 
   constructor(gl: WebGL2RenderingContext, connectome: NVConnectomeOptions) {
     super([], [], connectome.name, [], 1.0, true, gl, connectome)
     this.gl = gl
     this.type = MeshType.CONNECTOME
     if (this.nodes) {
+      // TODO: will this ever happen? this.nodes wasn't defined
       this.updateLabels()
     }
 
     this.nodesChanged = new EventTarget()
   }
 
-  static convertLegacyConnectome(json) {
-    const connectome = { nodes: [], edges: [] }
+  static convertLegacyConnectome(json: LegacyConnectome): Connectome {
+    const connectome: Connectome = { nodes: [], edges: [] }
     for (const prop in json) {
       if (prop in defaultOptions) {
         connectome[prop] = json[prop]
@@ -385,12 +407,12 @@ export class NVConnectome extends NVMesh {
     this.indexCount = tris.length
   }
 
-  updateMesh(gl) {
+  updateMesh(gl: WebGL2RenderingContext): void {
     this.updateConnectome(gl)
   }
 
-  json() {
-    const json = {}
+  json(): Record<string, unknown> {
+    const json: Record<string, unknown> = {}
     for (const prop in this) {
       if (prop in defaultOptions || prop === 'nodes' || prop === 'edges') {
         json[prop] = this[prop]
@@ -406,7 +428,7 @@ export class NVConnectome extends NVMesh {
    * @param {string} url
    * @returns {NVConnectome}
    */
-  static async loadConnectomeFromUrl(gl, url) {
+  static async loadConnectomeFromUrl(gl: WebGL2RenderingContext, url: string): Promise<NVConnectome> {
     const response = await fetch(url)
     const json = await response.json()
     return new NVConnectome(gl, json)
