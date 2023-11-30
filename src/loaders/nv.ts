@@ -1,9 +1,6 @@
-export type NV = {
-  positions: Float32Array
-  indices: Int32Array
-}
+import { ReadResult } from '../types.js'
 
-export const readNV = (buffer: ArrayBuffer): NV => {
+export const readNV = (buffer: ArrayBuffer): ReadResult => {
   // n.b. clockwise triangle winding, indexed from 1
   const len = buffer.byteLength
   const bytes = new Uint8Array(buffer)

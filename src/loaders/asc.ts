@@ -1,9 +1,6 @@
-export type ASC = {
-  positions: Float32Array
-  indices: Int32Array
-}
+import { ReadResult } from '../types.js'
 
-export const readASC = (buffer: ArrayBuffer): ASC => {
+export const readASC = (buffer: ArrayBuffer): ReadResult => {
   const len = buffer.byteLength
   const bytes = new Uint8Array(buffer)
   let pos = 0

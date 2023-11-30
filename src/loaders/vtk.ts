@@ -1,3 +1,4 @@
+import { ReadResult } from '../types.js'
 import { TxtVtk, readTxtVTK } from './txt-vtk.js'
 
 export type VTK =
@@ -6,10 +7,7 @@ export type VTK =
       pts: Float32Array
       offsetPt0: Uint32Array
     }
-  | {
-      positions: Float32Array
-      indices: Int32Array
-    }
+  | ReadResult
 
 export const readVTK = (buffer: ArrayBuffer): VTK => {
   const len = buffer.byteLength

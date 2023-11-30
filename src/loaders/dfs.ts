@@ -1,10 +1,6 @@
-export type DFS = {
-  positions: Float32Array
-  indices: Int32Array
-  colors: Float32Array | null
-}
+import { ColorReadResult } from '../types.js'
 
-export const readDFS = (buffer: ArrayBuffer): DFS => {
+export const readDFS = (buffer: ArrayBuffer): ColorReadResult => {
   // Does not play with other formats: vertex positions do not use Aneterior Commissure as origin
   const reader = new DataView(buffer)
   const magic = reader.getUint32(0, true) // "DFS_"

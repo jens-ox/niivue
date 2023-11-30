@@ -1,18 +1,6 @@
 import { decompressSync } from 'fflate/browser'
-import { Log } from '../logger.js'
 
-const log = new Log()
-
-export type MZ3 =
-  | Float32Array
-  | {
-      positions: Float32Array | null
-      indices: Int32Array | null
-      scalars: Float32Array
-      colors: Float32Array | null
-    }
-
-export const readMZ3 = (buffer: ArrayBuffer, n_vert = 0): MZ3 => {
+export const readMZ3 = (buffer: ArrayBuffer, n_vert = 0) => {
   // ToDo: mz3 always little endian: support big endian? endian https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float32Array
   if (buffer.byteLength < 20) {
     // 76 for raw, not sure of gzip
@@ -34,13 +22,13 @@ export const readMZ3 = (buffer: ArrayBuffer, n_vert = 0): MZ3 => {
   const nface = reader.getUint32(4, true)
   let nvert = reader.getUint32(8, true)
   const nskip = reader.getUint32(12, true)
-  log.debug('MZ3 magic %d attr %d face %d vert %d skip %d', magic, attr, nface, nvert, nskip)
+  console.log('MZ3 magic %d attr %d face %d vert %d skip %d', magic, attr, nface, nvert, nskip)
   if (magic !== 23117) {
     throw new Error('Invalid MZ3 file')
   }
-  const isFace = (attr & 1) !== 0 ? 1 : 0
-  const isVert = (attr & 2) !== 0 ? 1 : 0
-  const isRGBA = (attr & 4) !== 0 ? 1 : 0
+  const isFace = (attr & 1) !== 0
+  const isVert = (attr & 2) !== 0
+  const isRGBA = (attr & 4) !== 0
   let isSCALAR = (attr & 8) !== 0
   const isDOUBLE = (attr & 16) !== 0
   // var isAOMap = attr & 32;
@@ -102,7 +90,7 @@ export const readMZ3 = (buffer: ArrayBuffer, n_vert = 0): MZ3 => {
       k4++ // skip Alpha
     } // for i
   } // if isRGBA
-  let scalars = new Float32Array()
+  let scalars = []
   if (!isRGBA && isSCALAR && NSCALAR > 0) {
     if (isDOUBLE) {
       const flt64 = new Float64Array(_buffer, filepos, NSCALAR * nvert)
@@ -121,4 +109,4 @@ export const readMZ3 = (buffer: ArrayBuffer, n_vert = 0): MZ3 => {
     scalars,
     colors
   }
-}
+} // readMZ3()

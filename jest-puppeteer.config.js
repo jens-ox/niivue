@@ -1,7 +1,7 @@
 export default {
   launch: {
     dumpio: true,
-    headless: 'new',
+    headless: false,
     defaultViewport: null,
     args: [`--window-size=1920,1080`, '--no-sandbox', '--disable-setuid-sandbox'],
     product: 'chrome'

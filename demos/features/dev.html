@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Basic Multiplanar</title>
+    <link rel="stylesheet" href="light.css" />
+  </head>
+  <body>
+    <main id="container">
+      <canvas id="gl1"></canvas>
+    </main>
+  </body>
+</html>
+<!-- <script type="module" async></script> -->
+<script type="module" async>
+  import { Niivue } from "../dist/index.js";
+
+  const nv = new Niivue()
+  await nv.attachTo('gl1', false)
+  const layersList = [
+      {
+        url: '../images/mz3/11ScalarMesh.mz3',
+        colormap: 'actc'
+      }
+    ]
+    await nv.loadMeshes([{ url: '../images/mz3/3Mesh.mz3', layers: layersList }])
+</script>

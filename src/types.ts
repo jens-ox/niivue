@@ -114,3 +114,9 @@ export type NVMeshLayer = {
 
   values?: number[]
 }
+
+export type ReadResult = {
+  positions: Float32Array
+  indices: Int32Array
+  colors?: Float32Array
+}
