@@ -2,6 +2,8 @@ import { SessionBus, SessionUser } from './session-bus.js'
 // Disabled warnings because of issue with JSDoc https://github.com/microsoft/TypeScript/issues/14377
 import { NVImage } from './nvimage/index.js'
 import { NVMesh } from './nvmesh.js'
+import { Niivue } from './niivue/index.js'
+import { Volume } from './types.js'
 
 /**
  * Enum for sync operations
@@ -32,13 +34,15 @@ const NVMESSAGE = Object.freeze({
  * @param {Niivue} niivue  Niivue object to conttrol
  */
 export class NVController {
-  constructor(niivue) {
-    this.niivue = niivue
-    this.mediaUrlMap = new Map()
-    this.isInSession = false
+  niivue: Niivue
+  mediaUrlMap: Map<string, string> = new Map()
+  isInSession = false
 
-    // events for external consumers
-    this.onFrameChange = () => {}
+  // events for external consumers
+  onFrameChange: () => void = () => {}
+
+  constructor(niivue: Niivue) {
+    this.niivue = niivue
 
     // bind all of our events
 
@@ -71,18 +75,19 @@ export class NVController {
     }
   }
 
-  onLocationChangeHandler(location) {
+  // TODO is this missing?
+  onLocationChangeHandler(location: unknown): void {
     console.log(location)
   }
 
-  addVolume(volume, url) {
+  addVolume(volume: Volume, url: string): void {
     this.niivue.volumes.push(volume)
     const idx = this.niivue.volumes.length === 1 ? 0 : this.niivue.volumes.length - 1
     this.niivue.setVolume(volume, idx)
     this.niivue.mediaUrlMap.set(volume, url)
   }
 
-  addMesh(mesh, url) {
+  addMesh(mesh: unknown, url: string): void {
     this.niivue.meshes.push(mesh)
     const idx = this.niivue.meshes.length === 1 ? 0 : this.niivue.meshes.length - 1
     this.niivue.setMesh(mesh, idx)

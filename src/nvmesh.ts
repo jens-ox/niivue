@@ -1,10 +1,10 @@
 import { vec3 } from 'gl-matrix'
 import { Log } from './logger.js'
 import { NiivueObject3D } from './niivue-object3D.js' // n.b. used by connectome
-import { cmapper } from './colortables.js'
+import { ColorMap, cmapper } from './colortables.js'
 import { NVMeshUtilities } from './nvmesh-utilities.js'
 import { NVMeshLoaders } from './loaders/index.js'
-import { NVConnectomeOptions } from './nvconnectome.js'
+import { Connectome, NVMeshLayer } from './types.js'
 
 const log = new Log()
 
@@ -14,16 +14,6 @@ export enum MeshType {
   MESH = 'mesh',
   CONNECTOME = 'connectome',
   FIBER = 'fiber'
-}
-
-type NVMeshLayer = {
-  url: string
-  opacity: number
-  colormap: string
-  colormapNegative: string
-  useNegativeCmap: boolean
-  cal_min: number
-  cal_max: number
 }
 
 export class NVMeshFromUrlOptions {
@@ -91,12 +81,14 @@ export class NVMesh {
   visible: boolean
   meshShaderIndex: number
   indexBuffer: WebGLBuffer
+  indexCount?: number
   vertexBuffer: WebGLBuffer
+  vertexCount?: number
   vao: WebGLVertexArrayObject
   offsetPt0: number[] | null = null
   hasConnectome = false
   colormapInvert = false
-  fiberGroupColormap = null
+  fiberGroupColormap: ColorMap | null = null
   layers: NVMeshLayer[] = []
   type = MeshType.MESH
 
@@ -110,12 +102,23 @@ export class NVMesh {
   fiberColor = 'Global'
   fiberDecimationStride = 1 // e.g. if 2 the 50% of streamlines visible, if 3 then 1/3rd
   fiberMask = [] // provide method to show/hide specific fibers
-  colormap: NVConnectomeOptions | null = null
-  dpg: number[] | null = null
-  dps: number[] | null = null
-  dpv: number[] | null = null
+  colormap?: string
+  dpg: Vals[] | null = null
+  dps: Vals[] | null = null
+  dpv: Vals[] | null = null
 
-  connectome: NVConnectomeOptions | null = null
+  nodeScale = 4
+  edgeScale = 1
+  nodeColormap = 'warm'
+  nodeColormapNegative?: string
+  edgeColormap = 'warm'
+  edgeColormapNegative?: string
+  nodeMinColor = 0
+  nodeMaxColor = 4
+  edgeMin = 0
+  edgeMax = 6
+
+  connectome: Connectome | null = null
 
   constructor(
     pts: number[],
@@ -125,10 +128,10 @@ export class NVMesh {
     opacity = 1.0,
     visible = true,
     gl: WebGL2RenderingContext,
-    connectome: NVConnectomeOptions | null = null,
-    dpg: number[] | null = null,
-    dps: number[] | null = null,
-    dpv: number[] | null = null,
+    connectome: Connectome | null = null,
+    dpg: Vals[] | null = null,
+    dps: Vals[] | null = null,
+    dpv: Vals[] | null = null,
     colorbarVisible = true
   ) {
     this.name = name
@@ -276,7 +279,7 @@ export class NVMesh {
         dps = this.dps[n].vals
       }
     }
-    if (fiberColor.startsWith('dpv') && this.dpv.length > 0) {
+    if (fiberColor.startsWith('dpv') && this.dpv && this.dpv.length > 0) {
       const n = parseInt(fiberColor.substring(3))
       if (n < this.dpv.length && this.dpv[n].vals.length === npt) {
         dpv = this.dpv[n].vals
@@ -288,8 +291,8 @@ export class NVMesh {
       const lut = new Uint8ClampedArray(this.dpg.length * 4) // 4 component RGBA for each group
       const groupVisible = new Array(this.dpg.length).fill(false)
       const cmap = this.fiberGroupColormap
-      if (!('A' in cmap)) {
-        cmap.A = new Uint8ClampedArray(cmap.I.length).fill(255)
+      if (!cmap.A) {
+        cmap.A = Array.from(new Uint8ClampedArray(cmap.I.length).fill(255))
       }
       for (let i = 0; i < cmap.I.length; i++) {
         let idx = cmap.I[i]
@@ -342,7 +345,7 @@ export class NVMesh {
       let v4 = 3 // +3: fill 4th component colors: XYZC = 0123
       for (let i = 0; i < npt; i++) {
         let color = (dpv[i] - mn) / (mx - mn)
-        color = Math.round(Math.max(Math.min(255, color * 255)), 1) * 4
+        color = Math.round(Math.max(Math.min(255, color * 255))) * 4
         const RGBA = lut[color] + (lut[color + 1] << 8) + (lut[color + 2] << 16)
         posClrU32[v4] = RGBA
         v4 += 4
@@ -361,7 +364,7 @@ export class NVMesh {
       } // avoid divide by zero
       for (let i = 0; i < n_count; i++) {
         let color = (dps[i] - mn) / (mx - mn)
-        color = Math.round(Math.max(Math.min(255, color * 255)), 1) * 4
+        color = Math.round(Math.max(Math.min(255, color * 255))) * 4
         const RGBA = lut[color] + (lut[color + 1] << 8) + (lut[color + 2] << 16)
         const vStart = offsetPt0[i] // first vertex in streamline
         const vEnd = offsetPt0[i + 1] - 1 // last vertex in streamline
@@ -466,12 +469,12 @@ export class NVMesh {
   } // updateFibers()
 
   // internal function filters connectome to identify which color, size and visibility of nodes and edges
-  updateConnectome(gl) {
+  updateConnectome(gl: WebGL2RenderingContext): void {
     // draw nodes
-    const tris = []
+    const tris: number[] = []
     const nNode = this.nodes.X.length
     let hasEdges = false
-    if (nNode > 1 && 'edges' in this) {
+    if (nNode > 1 && this.edges) {
       let nEdges = this.edges.length
       if ((nEdges = nNode * nNode)) {
         hasEdges = true
@@ -479,22 +482,10 @@ export class NVMesh {
         console.log('Expected %d edges not %d', nNode * nNode, nEdges)
       }
     }
-    if (!('nodeScale' in this.hasOwnProperty)) {
-      this.nodeScale = 4
-    }
-    if (!('edgeScale' in this)) {
-      this.edgeScale = 1
-    }
-    if (!('nodeColormap' in this)) {
-      this.nodeColormap = 'warm'
-    }
-    if (!('edgeColormap' in this)) {
-      this.edgeColormap = 'warm'
-    }
 
     // draw all nodes
-    const pts = []
-    const rgba255 = []
+    const pts: number[] = []
+    const rgba255: number[] = []
     let lut = cmapper.colormap(this.nodeColormap, this.colormapInvert)
     let lutNeg = cmapper.colormap(this.nodeColormapNegative, this.colormapInvert)
     let hasNeg = 'nodeColormapNegative' in this
@@ -519,7 +510,7 @@ export class NVMesh {
       } else {
         color = 1.0
       }
-      color = Math.round(Math.max(Math.min(255, color * 255)), 1) * 4
+      color = Math.round(Math.max(Math.min(255, color * 255))) * 4
       let rgba = [lut[color], lut[color + 1], lut[color + 2], 255]
       if (isNeg) {
         rgba = [lutNeg[color], lutNeg[color + 1], lutNeg[color + 2], 255]
@@ -554,13 +545,13 @@ export class NVMesh {
           } else {
             color = 1.0
           }
-          color = Math.round(Math.max(Math.min(255, color * 255)), 1) * 4
+          color = Math.round(Math.max(Math.min(255, color * 255))) * 4
           let rgba = [lut[color], lut[color + 1], lut[color + 2], 255]
           if (isNeg) {
             rgba = [lutNeg[color], lutNeg[color + 1], lutNeg[color + 2], 255]
           }
-          const pti = [this.nodes.X[i], this.nodes.Y[i], this.nodes.Z[i]]
-          const ptj = [this.nodes.X[j], this.nodes.Y[j], this.nodes.Z[j]]
+          const pti: vec3 = [this.nodes.X[i], this.nodes.Y[i], this.nodes.Z[i]]
+          const ptj: vec3 = [this.nodes.X[j], this.nodes.Y[j], this.nodes.Z[j]]
           NiivueObject3D.makeColoredCylinder(pts, tris, rgba255, pti, ptj, radius, rgba)
         } // for j
       } // for i
@@ -580,7 +571,7 @@ export class NVMesh {
   }
 
   // internal function filters mesh to identify which color of triangulated mesh vertices
-  updateMesh(gl) {
+  updateMesh(gl: WebGL2RenderingContext): void {
     if (this.offsetPt0) {
       this.updateFibers(gl)
       return // fiber not mesh
@@ -593,11 +584,11 @@ export class NVMesh {
       console.log('underspecified mesh')
       return
     }
-    function lerp(x, y, a) {
+    function lerp(x: number, y: number, a: number): number {
       // https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/mix.xhtml
       return x * (1 - a) + y * a
     }
-    function additiveBlend(x, y) {
+    function additiveBlend(x: number, y: number): number {
       return Math.min(x + y, 255.0)
     }
     const posNormClr = this.generatePosNormClr(this.pts, this.tris, this.rgba255)
@@ -610,18 +601,18 @@ export class NVMesh {
 
     if (this.layers && this.layers.length > 0) {
       for (let i = 0; i < this.layers.length; i++) {
-        const layer = this.layers[i]
+        const layer: NVMeshLayer = this.layers[i]
         const opacity = layer.opacity
         if (opacity <= 0.0 || layer.cal_min > layer.cal_max) {
           continue
         }
-        if (!('isAdditiveBlend' in layer)) {
+        if (layer.isAdditiveBlend === undefined) {
           layer.isAdditiveBlend = false
         }
-        if (!('colormapLabel' in layer)) {
+        if (layer.colormapLabel === undefined) {
           layer.colormapLabel = []
         }
-        if ('R' in layer.colormapLabel && !('lut' in layer.colormapLabel)) {
+        if (layer.colormapLabel.includes('R') && !layer.colormapLabel.includes('lut')) {
           // convert colormap JSON to RGBA LUT
           layer.colormapLabel = cmapper.makeLabelLut(layer.colormapLabel)
         }
@@ -1011,33 +1002,32 @@ export class NVMesh {
   } // loadConnectomeFromJSON()
 
   // wrapper to read meshes, tractograms and connectomes regardless of format
-  static async readMesh(buffer, name, gl, opacity = 1.0, rgba255 = [255, 255, 255, 255], visible = true) {
+  static async readMesh(
+    buffer: Buffer,
+    name: string,
+    gl: WebGL2RenderingContext,
+    opacity = 1.0,
+    rgba255 = [255, 255, 255, 255],
+    visible = true
+  ): Promise<NVMesh> {
     let tris = []
     let pts = []
-    let obj = []
+    let obj = {}
     const re = /(?:\.([^.]+))?$/
-    let ext = re.exec(name)[1]
+    let ext = re.exec(name)![1] // TODO can this be guaranteed?
     ext = ext.toUpperCase()
     if (ext === 'GZ') {
-      ext = re.exec(name.slice(0, -3))[1] // img.trk.gz -> img.trk
+      ext = re.exec(name.slice(0, -3))![1] // img.trk.gz -> img.trk
       ext = ext.toUpperCase()
     }
     if (ext === 'JCON') {
-      return await this.loadConnectomeFromJSON(
-        JSON.parse(new TextDecoder().decode(buffer)),
-        gl,
-        name,
-        '',
-        opacity,
-        visible
-      )
+      return await this.loadConnectomeFromJSON(JSON.parse(new TextDecoder().decode(buffer)), gl, name, opacity, visible)
     }
     if (ext === 'JSON') {
       return await this.loadConnectomeFromFreeSurfer(
         JSON.parse(new TextDecoder().decode(buffer)),
         gl,
         name,
-        '',
         opacity,
         visible
       )
@@ -1049,7 +1039,7 @@ export class NVMesh {
       } else if (ext === 'TRACT') {
         obj = NVMeshLoaders.readTRACT(buffer)
       } else if (ext === 'TRX') {
-        obj = await NVMeshLoaders.readTRX(buffer)
+        obj = NVMeshLoaders.readTRX(buffer)
       } else {
         obj = NVMeshLoaders.readTRK(buffer)
       }
@@ -1059,8 +1049,6 @@ export class NVMesh {
         obj = { pts, offsetPt0 }
         log.error('Creating empty tracts')
       }
-      // let offsetPt0 = new Int32Array(obj.offsetPt0.slice());
-      // let pts = new Float32Array(obj.pts.slice());
       const offsetPt0 = new Int32Array(obj.offsetPt0.slice())
       const pts = new Float32Array(obj.pts.slice())
       if (!('dpg' in obj)) {
@@ -1184,10 +1172,10 @@ export class NVMesh {
     return nvm
   }
 
-  static async loadLayer(layer, nvmesh) {
+  static async loadLayer(layer: NVMeshLayer, nvmesh: NVMesh): Promise<void> {
     let buffer
 
-    function base64ToArrayBuffer(base64) {
+    function base64ToArrayBuffer(base64: string): ArrayBuffer {
       const binary_string = window.atob(base64)
       const len = binary_string.length
       const bytes = new Uint8Array(len)
@@ -1433,111 +1421,111 @@ export class NVMesh {
   }
 
   // loaders
-  static readGII(buffer) {
+  static readGII(buffer: ArrayBuffer) {
     return NVMeshLoaders.readGII(buffer)
   }
 
-  static readX3D(buffer) {
+  static readX3D(buffer: ArrayBuffer) {
     return NVMeshLoaders.readX3D(buffer)
   }
 
-  static readNII(buffer, n_vert = 0) {
+  static readNII(buffer: ArrayBuffer, n_vert = 0) {
     return NVMeshLoaders.readNII(buffer, n_vert)
   }
 
-  static readNII2(buffer, n_vert = 0) {
+  static readNII2(buffer: ArrayBuffer, n_vert = 0) {
     return NVMeshLoaders.readNII2(buffer, n_vert)
   }
 
-  static readMGH(buffer) {
+  static readMGH(buffer: ArrayBuffer) {
     return NVMeshLoaders.readMGH(buffer)
   }
 
-  static readSTL(buffer) {
+  static readSTL(buffer: ArrayBuffer) {
     return NVMeshLoaders.readSTL(buffer)
   }
 
-  static readTxtSTL(buffer) {
+  static readTxtSTL(buffer: ArrayBuffer) {
     return NVMeshLoaders.readTxtSTL(buffer)
   }
 
-  static readSRF(buffer) {
+  static readSRF(buffer: ArrayBuffer) {
     return NVMeshLoaders.readSRF(buffer)
   }
 
-  static readFreeSurfer(buffer) {
+  static readFreeSurfer(buffer: ArrayBuffer) {
     return NVMeshLoaders.readFreeSurfer(buffer)
   }
 
-  static readOBJ(buffer) {
+  static readOBJ(buffer: ArrayBuffer) {
     return NVMeshLoaders.readOBJ(buffer)
   }
 
-  static readOFF(buffer) {
+  static readOFF(buffer: ArrayBuffer) {
     return NVMeshLoaders.readOFF(buffer)
   }
 
-  static readGEO(buffer, isFlipWinding = false) {
+  static readGEO(buffer: ArrayBuffer, isFlipWinding = false) {
     return NVMeshLoaders.readGEO(buffer, isFlipWinding)
   }
 
-  static readICO(buffer) {
+  static readICO(buffer: ArrayBuffer) {
     return NVMeshLoaders.readICO(buffer)
   }
 
-  static readPLY(buffer) {
+  static readPLY(buffer: ArrayBuffer) {
     return NVMeshLoaders.readPLY(buffer)
   }
 
-  static readMZ3(buffer, n_vert = 0) {
+  static readMZ3(buffer: ArrayBuffer, n_vert = 0) {
     return NVMeshLoaders.readMZ3(buffer, n_vert)
   }
 
-  static readVTK(buffer) {
+  static readVTK(buffer: ArrayBuffer) {
     return NVMeshLoaders.readVTK(buffer)
   }
 
-  static readASC(buffer) {
+  static readASC(buffer: ArrayBuffer) {
     return NVMeshLoaders.readASC(buffer)
   }
 
-  static readNV(buffer) {
+  static readNV(buffer: ArrayBuffer) {
     return NVMeshLoaders.readNV(buffer)
   }
 
-  static readANNOT(buffer, n_vert, isReadColortables = false) {
+  static readANNOT(buffer: ArrayBuffer, n_vert: number, isReadColortables = false) {
     return NVMeshLoaders.readANNOT(buffer, n_vert, isReadColortables)
   }
 
-  static readCURV(buffer, n_vert) {
+  static readCURV(buffer: ArrayBuffer, n_vert: number) {
     return NVMeshLoaders.readCURV(buffer, n_vert)
   }
 
-  static readSTC(buffer, n_vert) {
+  static readSTC(buffer: ArrayBuffer, n_vert: number) {
     return NVMeshLoaders.readSTC(buffer, n_vert)
   }
 
-  static readSMP(buffer, n_vert) {
+  static readSMP(buffer: ArrayBuffer, n_vert: number) {
     return NVMeshLoaders.readSMP(buffer, n_vert)
   }
 
-  static readTxtVTK(buffer) {
+  static readTxtVTK(buffer: ArrayBuffer) {
     return NVMeshLoaders.readTxtVTK(buffer)
   }
 
-  static readTRK(buffer) {
+  static readTRK(buffer: ArrayBuffer) {
     return NVMeshLoaders.readTRK(buffer)
   }
 
-  static readTCK(buffer) {
+  static readTCK(buffer: ArrayBuffer) {
     return NVMeshLoaders.readTCK(buffer)
   }
 
-  static async readTRX(buffer) {
+  static async readTRX(buffer: ArrayBuffer) {
     return NVMeshLoaders.readTRX(buffer)
   }
 
-  static readTRACT(buffer) {
+  static readTRACT(buffer: ArrayBuffer) {
     return NVMeshLoaders.readTRACT(buffer)
   }
 }

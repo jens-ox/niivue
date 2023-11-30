@@ -1,9 +1,11 @@
+import { NVMesh } from '../nvmesh.js'
+import { NVMeshLayer } from '../types.js'
 import { NVMeshLoaders } from './index.js'
 
 export const readLayer = (
-  name,
-  buffer,
-  nvmesh,
+  name: string,
+  buffer: ArrayBuffer,
+  nvmesh: NVMesh,
   opacity = 0.5,
   colormap = 'warm',
   colormapNegative = 'winter',
@@ -11,8 +13,8 @@ export const readLayer = (
   cal_min = null,
   cal_max = null,
   isOutlineBorder = false
-) => {
-  const layer = {
+): void => {
+  const layer: Partial<NVMeshLayer> = {
     colormapInvert: false,
     alphaThreshold: false,
     isTransparentBelowCalMin: true,
@@ -22,8 +24,9 @@ export const readLayer = (
   }
 
   const isReadColortables = true
-  const n_vert = nvmesh.vertexCount / 3 // each vertex has XYZ component
+  const n_vert = nvmesh.vertexCount ?? 0 / 3 // each vertex has XYZ component
   if (n_vert < 3) {
+    // TODO should this throw an error?
     return
   }
   const re = /(?:\.([^.]+))?$/
@@ -108,5 +111,5 @@ export const readLayer = (
   layer.colormap = colormap
   layer.colormapNegative = colormapNegative
   layer.useNegativeCmap = useNegativeCmap
-  nvmesh.layers.push(layer)
+  nvmesh.layers.push(layer as NVMeshLayer)
 }

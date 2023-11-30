@@ -3,11 +3,22 @@ import { decompressSync } from 'fflate/browser'
 import { Log } from '../logger.js'
 import { cmapper } from '../colortables.js'
 import { NiivueObject3D } from '../niivue-object3D.js'
+import { NVMesh } from '../nvmesh.js'
 import { TRACT } from './tract.js'
 import { TRX, readTRX } from './trx.js'
 import { TCK, readTCK } from './tck.js'
 import { TRK, readTRK } from './trk.js'
 import { TxtVtk, readTxtVTK } from './txt-vtk.js'
+import { readLayer } from './layer.js'
+import { readSMP } from './smp.js'
+import { readSTC } from './stc.js'
+import { readCURV } from './curv.js'
+import { ANNOT, readANNOT } from './annot.js'
+import { NV, readNV } from './nv.js'
+import { ASC, readASC } from './asc.js'
+import { VTK, readVTK } from './vtk.js'
+import { readDFS } from './dfs.js'
+import { MZ3, readMZ3 } from './mz3.js'
 
 /**
  * Global logger for utilities
@@ -51,9 +62,9 @@ export class NVMeshLoaders {
 
   // read mesh overlay to influence vertex colors
   static readLayer(
-    name,
-    buffer,
-    nvmesh,
+    name: string,
+    buffer: ArrayBuffer,
+    nvmesh: NVMesh,
     opacity = 0.5,
     colormap = 'warm',
     colormapNegative = 'winter',
@@ -61,866 +72,75 @@ export class NVMeshLoaders {
     cal_min = null,
     cal_max = null,
     isOutlineBorder = false
-  ) {
-    const layer = []
-    layer.colormapInvert = false
-    layer.alphaThreshold = false
-    layer.isTransparentBelowCalMin = true
-    layer.isAdditiveBlend = false
-    layer.colorbarVisible = true
-    layer.colormapLabel = []
-    const isReadColortables = true
-    const n_vert = nvmesh.vertexCount / 3 // each vertex has XYZ component
-    if (n_vert < 3) {
-      return
-    }
-    const re = /(?:\.([^.]+))?$/
-    let ext = re.exec(name)[1]
-    ext = ext.toUpperCase()
-    if (ext === 'GZ') {
-      ext = re.exec(name.slice(0, -3))[1] // img.trk.gz -> img.trk
-      ext = ext.toUpperCase()
-    }
-    if (ext === 'MZ3') {
-      layer.values = NVMeshLoaders.readMZ3(buffer, n_vert)
-    } else if (ext === 'ANNOT') {
-      if (!isReadColortables) {
-        layer.values = NVMeshLoaders.readANNOT(buffer, n_vert)
-      } else {
-        const obj = NVMeshLoaders.readANNOT(buffer, n_vert, true)
-        if ('scalars' in obj) {
-          layer.values = obj.scalars
-          layer.colormapLabel = obj.colormapLabel
-        } // unable to decode colormapLabel
-        else {
-          layer.values = obj
-        }
-      }
-    } else if (ext === 'CRV' || ext === 'CURV') {
-      layer.values = NVMeshLoaders.readCURV(buffer, n_vert)
-      layer.isTransparentBelowCalMin = false
-    } else if (ext === 'GII') {
-      const obj = NVMeshLoaders.readGII(buffer, n_vert)
-      layer.values = obj.scalars // colormapLabel
-      layer.colormapLabel = obj.colormapLabel
-    } else if (ext === 'MGH' || ext === 'MGZ') {
-      if (!isReadColortables) {
-        layer.values = NVMeshLoaders.readMGH(buffer, n_vert)
-      } else {
-        const obj = NVMeshLoaders.readMGH(buffer, n_vert, true)
-        if ('scalars' in obj) {
-          layer.values = obj.scalars
-          layer.colormapLabel = obj.colormapLabel
-        } // unable to decode colormapLabel
-        else {
-          layer.values = obj
-        }
-      }
-    } else if (ext === 'NII') {
-      layer.values = NVMeshLoaders.readNII(buffer, n_vert)
-    } else if (ext === 'SMP') {
-      layer.values = NVMeshLoaders.readSMP(buffer, n_vert)
-    } else if (ext === 'STC') {
-      layer.values = NVMeshLoaders.readSTC(buffer, n_vert)
-    } else {
-      console.log('Unknown layer overlay format ' + name)
-      return
-    }
-    if (!layer.values) {
-      return
-    }
-    layer.nFrame4D = layer.values.length / n_vert
-    layer.frame4D = 0
-    layer.isOutlineBorder = isOutlineBorder
-    // determine global min..max
-    let mn = layer.values[0]
-    let mx = layer.values[0]
-    for (let i = 0; i < layer.values.length; i++) {
-      mn = Math.min(mn, layer.values[i])
-      mx = Math.max(mx, layer.values[i])
-    }
-    // console.log('layer range: ', mn, mx);
-    layer.global_min = mn
-    layer.global_max = mx
-    layer.cal_min = cal_min
-    if (!cal_min) {
-      layer.cal_min = mn
-    }
-    layer.cal_max = cal_max
-    if (!cal_max) {
-      layer.cal_max = mx
-    }
-    layer.cal_minNeg = NaN
-    layer.cal_maxNeg = NaN
-    layer.opacity = opacity
-    layer.colormap = colormap
-    layer.colormapNegative = colormapNegative
-    layer.useNegativeCmap = useNegativeCmap
-    nvmesh.layers.push(layer)
-  } // readLayer()
+  ): void {
+    readLayer(
+      name,
+      buffer,
+      nvmesh,
+      opacity,
+      colormap,
+      colormapNegative,
+      useNegativeCmap,
+      cal_min,
+      cal_max,
+      isOutlineBorder
+    )
+  }
 
   // read brainvoyager smp format file
   // https://support.brainvoyager.com/brainvoyager/automation-development/84-file-formats/40-the-format-of-smp-files
-  static readSMP(buffer, n_vert) {
-    const len = buffer.byteLength
-    let reader = new DataView(buffer)
-    let vers = reader.getUint16(0, true)
-    if (vers > 5) {
-      // assume gzip
-      const raw = decompressSync(new Uint8Array(buffer))
-      reader = new DataView(raw.buffer)
-      vers = reader.getUint16(0, true)
-      buffer = raw.buffer
-    }
-    if (vers > 5) {
-      console.log('Unsupported or invalid BrainVoyager SMP version ' + vers)
-    }
-    const nvert = reader.getUint32(2, true)
-    if (nvert !== n_vert) {
-      console.log('SMP file has ' + nvert + ' vertices, background mesh has ' + n_vert)
-    }
-    const nMaps = reader.getUint16(6, true)
-
-    const scalars = new Float32Array(nvert * nMaps)
-    const maps = []
-    let pos = 9
-    function readStr() {
-      const startPos = pos
-      while (pos < len && reader.getUint8(pos) !== 0) {
-        pos++
-      }
-      pos++ // skip null termination
-      return new TextDecoder().decode(buffer.slice(startPos, pos - 1))
-    } // readStr: read variable length string
-
-    // read Name of SRF
-    const _filenameSRF = readStr()
-
-    for (let i = 0; i < nMaps; i++) {
-      const m = []
-      m.mapType = reader.getUint32(pos, true)
-      pos += 4
-      // Read additional values only if a lag map
-      if (vers >= 3 && m.mapType === 3) {
-        m.nLags = reader.getUint32(pos, true)
-        pos += 4
-        m.mnLag = reader.getUint32(pos, true)
-        pos += 4
-        m.mxLag = reader.getUint32(pos, true)
-        pos += 4
-        m.ccOverlay = reader.getUint32(pos, true)
-        pos += 4
-      }
-      m.clusterSize = reader.getUint32(pos, true)
-      pos += 4
-      m.clusterCheck = reader.getUint8(pos)
-      pos += 1
-      m.critThresh = reader.getFloat32(pos, true)
-      pos += 4
-      m.maxThresh = reader.getFloat32(pos, true)
-      pos += 4
-      if (vers >= 4) {
-        m.includeValuesGreaterThreshMax = reader.getUint32(pos, true)
-        pos += 4
-      }
-      m.df1 = reader.getUint32(pos, true)
-      pos += 4
-      m.df2 = reader.getUint32(pos, true)
-      pos += 4
-      if (vers >= 5) {
-        m.posNegFlag = reader.getUint32(pos, true)
-        pos += 4
-      } else {
-        m.posNegFlag = 3
-      }
-      m.cortexBonferroni = reader.getUint32(pos, true)
-      pos += 4
-      m.posMinRGB = [0, 0, 0]
-      m.posMaxRGB = [0, 0, 0]
-      m.negMinRGB = [0, 0, 0]
-      m.negMaxRGB = [0, 0, 0]
-      if (vers >= 2) {
-        m.posMinRGB[0] = reader.getUint8(pos)
-        pos++
-        m.posMinRGB[1] = reader.getUint8(pos)
-        pos++
-        m.posMinRGB[2] = reader.getUint8(pos)
-        pos++
-        m.posMaxRGB[0] = reader.getUint8(pos)
-        pos++
-        m.posMaxRGB[1] = reader.getUint8(pos)
-        pos++
-        m.posMaxRGB[2] = reader.getUint8(pos)
-        pos++
-        if (vers >= 4) {
-          m.negMinRGB[0] = reader.getUint8(pos)
-          pos++
-          m.negMinRGB[1] = reader.getUint8(pos)
-          pos++
-          m.negMinRGB[2] = reader.getUint8(pos)
-          pos++
-          m.negMaxRGB[0] = reader.getUint8(pos)
-          pos++
-          m.negMaxRGB[1] = reader.getUint8(pos)
-          pos++
-          m.negMaxRGB[2] = reader.getUint8(pos)
-          pos++
-        } // vers >= 4
-        m.enableSMPColor = reader.getUint8(pos)
-        pos++
-        if (vers >= 4) {
-          m.lut = readStr()
-        }
-        m.colorAlpha = reader.getFloat32(pos, true)
-        pos += 4
-      } // vers >= 2
-      m.name = readStr()
-      const scalarsNew = new Float32Array(buffer, pos, nvert, true)
-      scalars.set(scalarsNew, i * nvert)
-      pos += nvert * 4
-      maps.push(m)
-    } // for i to nMaps
-    return scalars
-  } // readSMP()
+  static readSMP(buffer: ArrayBuffer, n_vert: number): Float32Array {
+    return readSMP(buffer, n_vert)
+  }
 
   // read mne stc format file, not to be confused with brainvoyager stc format
   // https://github.com/mne-tools/mne-python/blob/main/mne/source_estimate.py#L211-L365
-  static readSTC(buffer, n_vert) {
-    // https://github.com/fahsuanlin/fhlin_toolbox/blob/400cb73cda4880d9ad7841d9dd68e4e9762976bf/codes/inverse_read_stc.m
-    // let len = buffer.byteLength;
-    const reader = new DataView(buffer)
-    // first 12 bytes are header
-    // let epoch_begin_latency = reader.getFloat32(0, false);
-    // let sample_period = reader.getFloat32(4, false);
-    const n_vertex = reader.getInt32(8, false)
-    if (n_vertex !== n_vert) {
-      console.log('Overlay has ' + n_vertex + ' vertices, expected ' + n_vert)
-      return
-    }
-    // next 4*n_vertex bytes are vertex IDS
-    let pos = 12 + n_vertex * 4
-    // next 4 bytes reports number of volumes/time points
-    const n_time = reader.getUint32(pos, false)
-    pos += 4
-    const f32 = new Float32Array(n_time * n_vertex)
-    // reading all floats with .slice() would be faster, but lets handle endian-ness
-    for (let i = 0; i < n_time * n_vertex; i++) {
-      f32[i] = reader.getFloat32(pos, false)
-      pos += 4
-    }
-    return f32
-  } // readSTC()
+  static readSTC(buffer: ArrayBuffer, n_vert: number): Float32Array {
+    return readSTC(buffer, n_vert)
+  }
 
   // read freesurfer curv big-endian format
   // https://github.com/bonilhamusclab/MRIcroS/blob/master/%2BfileUtils/%2Bpial/readPial.m
   // http://www.grahamwideman.com/gw/brain/fs/surfacefileformats.htm
-  static readCURV(buffer, n_vert) {
-    const view = new DataView(buffer) // ArrayBuffer to dataview
-    // ALWAYS big endian
-    const sig0 = view.getUint8(0)
-    const sig1 = view.getUint8(1)
-    const sig2 = view.getUint8(2)
-    const n_vertex = view.getUint32(3, false)
-    // let num_f = view.getUint32(7, false);
-    const n_time = view.getUint32(11, false)
-    if (sig0 !== 255 || sig1 !== 255 || sig2 !== 255) {
-      utiltiesLogger.debug('Unable to recognize file type: does not appear to be FreeSurfer format.')
-    }
-    if (n_vert !== n_vertex) {
-      utiltiesLogger.debug('CURV file has different number of vertices ( ' + n_vertex + ')than mesh (' + n_vert + ')')
-      return
-    }
-    if (buffer.byteLength < 15 + 4 * n_vertex * n_time) {
-      console.log('CURV file smaller than specified')
-      return
-    }
-    const f32 = new Float32Array(n_time * n_vertex)
-    let pos = 15
-    // reading all floats with .slice() would be faster, but lets handle endian-ness
-    for (let i = 0; i < n_time * n_vertex; i++) {
-      f32[i] = view.getFloat32(pos, false)
-      pos += 4
-    }
-    let mn = f32[0]
-    let mx = f32[0]
-    for (let i = 0; i < f32.length; i++) {
-      mn = Math.min(mn, f32[i])
-      mx = Math.max(mx, f32[i])
-    }
-    // normalize
-    const scale = 1.0 / (mx - mn)
-    for (let i = 0; i < f32.length; i++) {
-      f32[i] = 1.0 - (f32[i] - mn) * scale
-    }
-    return f32
-  } // readCURV()
+  static readCURV(buffer: ArrayBuffer, n_vert: number): Float32Array {
+    return readCURV(buffer, n_vert)
+  }
 
   // read freesurfer Annotation file provides vertex colors
   // https://surfer.nmr.mgh.harvard.edu/fswiki/LabelsClutsAnnotationFiles
-  static readANNOT(buffer, n_vert, isReadColortables = false) {
-    const view = new DataView(buffer) // ArrayBuffer to dataview
-    // ALWAYS big endian
-    const n_vertex = view.getUint32(0, false)
-    if (n_vert !== n_vertex) {
-      console.log('ANNOT file has different number of vertices than mesh')
-      return
-    }
-    if (buffer.byteLength < 4 + 8 * n_vertex) {
-      console.log('ANNOT file smaller than specified')
-      return
-    }
-    let pos = 0
-    // reading all floats with .slice() would be faster, but lets handle endian-ness
-    const rgba32 = new Uint32Array(n_vertex)
-    for (let i = 0; i < n_vertex; i++) {
-      const idx = view.getUint32((pos += 4), false)
-      rgba32[idx] = view.getUint32((pos += 4), false)
-    }
-    if (!isReadColortables) {
-      // only read label colors, ignore labels
-      return rgba32
-    }
-    let tag = 0
-    try {
-      tag = view.getInt32((pos += 4), false)
-    } catch (error) {
-      return rgba32
-    }
-    const TAG_OLD_COLORTABLE = 1
-    if (tag !== TAG_OLD_COLORTABLE) {
-      // undocumented old format
-      return rgba32
-    }
-    const ctabversion = view.getInt32((pos += 4), false)
-    if (ctabversion > 0) {
-      // undocumented old format
-      return rgba32
-    }
-    const maxstruc = view.getInt32((pos += 4), false)
-    const len = view.getInt32((pos += 4), false)
-    pos += len
-    const num_entries = view.getInt32((pos += 4), false)
-    if (num_entries < 1) {
-      // undocumented old format
-      return rgba32
-    }
-    // preallocate lookuptable
-    const LUT = {
-      R: Array(maxstruc).fill(0),
-      G: Array(maxstruc).fill(0),
-      B: Array(maxstruc).fill(0),
-      A: Array(maxstruc).fill(0),
-      I: Array(maxstruc).fill(0),
-      labels: Array(maxstruc).fill('')
-    }
-    for (let i = 0; i < num_entries; i++) {
-      const struc = view.getInt32((pos += 4), false)
-      const labelLen = view.getInt32((pos += 4), false)
-      pos += 4
-      let txt = ''
-      for (let c = 0; c < labelLen; c++) {
-        const val = view.getUint8(pos++)
-        if (val === 0) {
-          break
-        }
-        txt += String.fromCharCode(val)
-      }
-      pos -= 4
-      const R = view.getInt32((pos += 4), false)
-      const G = view.getInt32((pos += 4), false)
-      const B = view.getInt32((pos += 4), false)
-      const A = view.getInt32((pos += 4), false)
-      if (struc < 0 || struc >= maxstruc) {
-        console.log('annot entry out of range')
-        continue
-      }
-      LUT.R[struc] = R
-      LUT.G[struc] = G
-      LUT.B[struc] = B
-      LUT.A[struc] = A
-      LUT.I[struc] = (A << 24) + (B << 16) + (G << 8) + R
-      LUT.labels[struc] = txt
-    }
-    const scalars = new Float32Array(n_vertex)
-    scalars.fill(-1)
-    let nError = 0
-    for (let i = 0; i < n_vert; i++) {
-      const RGB = rgba32[i]
-      for (let c = 0; c < maxstruc; c++) {
-        if (LUT.I[c] === RGB) {
-          scalars[i] = c
-          break
-        }
-      } // for c
-      if (scalars[i] < 0) {
-        nError++
-        scalars[i] = 0
-      }
-    }
-    if (nError > 0) {
-      console.log(`annot vertex colors do not match ${nError} of ${n_vertex} vertices.`)
-    }
-    for (let i = 0; i < maxstruc; i++) {
-      LUT.I[i] = i
-    }
-    const colormapLabel = cmapper.makeLabelLut(LUT)
-    return {
-      scalars,
-      colormapLabel
-    }
-  } // readANNOT()
+  static readANNOT(buffer: ArrayBuffer, n_vert: number, isReadColortables = false): ANNOT {
+    return readANNOT(buffer, n_vert, isReadColortables)
+  }
 
   // read BrainNet viewer format
   // https://www.nitrc.org/projects/bnv/
-  static readNV(buffer) {
-    // n.b. clockwise triangle winding, indexed from 1
-    const len = buffer.byteLength
-    const bytes = new Uint8Array(buffer)
-    let pos = 0
-    function readStr() {
-      while (pos < len && bytes[pos] === 10) {
-        pos++
-      } // skip blank lines
-      const startPos = pos
-      while (pos < len && bytes[pos] !== 10) {
-        pos++
-      }
-      pos++ // skip EOLN
-      if (pos - startPos < 1) {
-        return ''
-      }
-      return new TextDecoder().decode(buffer.slice(startPos, pos - 1))
-    }
-    let nvert = 0 // 173404 346804
-    let ntri = 0
-    let v = 0
-    let t = 0
-    let positions = []
-    let indices = []
-    while (pos < len) {
-      const line = readStr()
-      if (line.startsWith('#')) {
-        continue
-      }
-      const items = line.trim().split(/\s+/)
-      if (nvert < 1) {
-        nvert = parseInt(items[0])
-        positions = new Float32Array(nvert * 3)
-        continue
-      }
-      if (v < nvert * 3) {
-        positions[v] = parseFloat(items[0])
-        positions[v + 1] = parseFloat(items[1])
-        positions[v + 2] = parseFloat(items[2])
-        v += 3
-        continue
-      }
-      if (ntri < 1) {
-        ntri = parseInt(items[0])
-        indices = new Int32Array(ntri * 3)
-        continue
-      }
-      if (t >= ntri * 3) {
-        break
-      }
-      indices[t + 2] = parseInt(items[0]) - 1
-      indices[t + 1] = parseInt(items[1]) - 1
-      indices[t + 0] = parseInt(items[2]) - 1
-      t += 3
-    }
-    return {
-      positions,
-      indices
-    }
-  } // readNV()
+  static readNV(buffer: ArrayBuffer): NV {
+    return readNV(buffer)
+  }
 
   // read ASCII Patch File format
   // https://afni.nimh.nih.gov/pub/dist/doc/htmldoc/demos/Bootcamp/CD.html#cd
   // http://www.grahamwideman.com/gw/brain/fs/surfacefileformats.htm
-  static readASC(buffer) {
-    const len = buffer.byteLength
-    const bytes = new Uint8Array(buffer)
-    let pos = 0
-    function readStr() {
-      while (pos < len && bytes[pos] === 10) {
-        pos++
-      } // skip blank lines
-      const startPos = pos
-      while (pos < len && bytes[pos] !== 10) {
-        pos++
-      }
-      pos++ // skip EOLN
-      if (pos - startPos < 1) {
-        return ''
-      }
-      return new TextDecoder().decode(buffer.slice(startPos, pos - 1))
-    }
-    let line = readStr() // 1st line: '#!ascii version of lh.pial'
-    if (!line.startsWith('#!ascii')) {
-      console.log('Invalid ASC mesh')
-    }
-    line = readStr() // 1st line: signature
-    let items = line.trim().split(/\s+/)
-    const nvert = parseInt(items[0]) // 173404 346804
-    const ntri = parseInt(items[1])
-    const positions = new Float32Array(nvert * 3)
-    let j = 0
-    for (let i = 0; i < nvert; i++) {
-      line = readStr() // 1st line: signature
-      items = line.trim().split(/\s+/)
-      positions[j] = parseFloat(items[0])
-      positions[j + 1] = parseFloat(items[1])
-      positions[j + 2] = parseFloat(items[2])
-      j += 3
-    }
-    const indices = new Int32Array(ntri * 3)
-    j = 0
-    for (let i = 0; i < ntri; i++) {
-      line = readStr() // 1st line: signature
-      items = line.trim().split(/\s+/)
-      indices[j] = parseInt(items[0])
-      indices[j + 1] = parseInt(items[1])
-      indices[j + 2] = parseInt(items[2])
-      j += 3
-    }
-    return {
-      positions,
-      indices
-    }
+  static readASC(buffer: ArrayBuffer): ASC {
+    return readASC(buffer)
   } // readASC()
 
   // read legacy VTK format
-  static readVTK(buffer) {
-    const len = buffer.byteLength
-    if (len < 20) {
-      throw new Error('File too small to be VTK: bytes = ' + buffer.byteLength)
-    }
-    const bytes = new Uint8Array(buffer)
-    let pos = 0
-    function readStr(isSkipBlank = true) {
-      if (isSkipBlank) {
-        while (pos < len && bytes[pos] === 10) {
-          pos++
-        }
-      } // skip blank lines
-      const startPos = pos
-      while (pos < len && bytes[pos] !== 10) {
-        pos++
-      }
-      pos++ // skip EOLN
-      if (pos - startPos < 1) {
-        return ''
-      }
-      return new TextDecoder().decode(buffer.slice(startPos, pos - 1))
-    }
-    let line = readStr() // 1st line: signature
-    if (!line.startsWith('# vtk DataFile')) {
-      alert('Invalid VTK mesh')
-    }
-    line = readStr(false) // 2nd line comment, n.b. MRtrix stores empty line
-    line = readStr() // 3rd line ASCII/BINARY
-    if (line.startsWith('ASCII')) {
-      return NVMeshLoaders.readTxtVTK(buffer)
-    } else if (!line.startsWith('BINARY')) {
-      alert('Invalid VTK image, expected ASCII or BINARY', line)
-    }
-    line = readStr() // 5th line "DATASET POLYDATA"
-    if (!line.includes('POLYDATA')) {
-      alert('Only able to read VTK POLYDATA', line)
-    }
-    line = readStr() // 6th line "POINTS 10261 float"
-    if (!line.includes('POINTS') || (!line.includes('double') && !line.includes('float'))) {
-      console.log('Only able to read VTK float or double POINTS' + line)
-    }
-    const isFloat64 = line.includes('double')
-    let items = line.trim().split(/\s+/)
-    const nvert = parseInt(items[1]) // POINTS 10261 float
-    const nvert3 = nvert * 3
-    const positions = new Float32Array(nvert3)
-    const reader = new DataView(buffer)
-    if (isFloat64) {
-      for (let i = 0; i < nvert3; i++) {
-        positions[i] = reader.getFloat64(pos, false)
-        pos += 8
-      }
-    } else {
-      for (let i = 0; i < nvert3; i++) {
-        positions[i] = reader.getFloat32(pos, false)
-        pos += 4
-      }
-    }
-    line = readStr() // Type, "LINES 11885 "
-    items = line.trim().split(/\s+/)
-    const tris = []
-    if (items[0].includes('LINES')) {
-      const n_count = parseInt(items[1])
-      // tractogaphy data: detect if borked by DiPy
-      const posOK = pos
-      line = readStr() // borked files "OFFSETS vtktypeint64"
-      if (line.startsWith('OFFSETS')) {
-        // console.log("invalid VTK file created by DiPy");
-        let isInt64 = false
-        if (line.includes('int64')) {
-          isInt64 = true
-        }
-        const offsetPt0 = new Uint32Array(n_count)
-        if (isInt64) {
-          let isOverflowInt32 = false
-          for (let c = 0; c < n_count; c++) {
-            let idx = reader.getInt32(pos, false)
-            if (idx !== 0) {
-              isOverflowInt32 = true
-            }
-            pos += 4
-            idx = reader.getInt32(pos, false)
-            pos += 4
-            offsetPt0[c] = idx
-          }
-          if (isOverflowInt32) {
-            console.log('int32 overflow: JavaScript does not support int64')
-          }
-        } else {
-          for (let c = 0; c < n_count; c++) {
-            const idx = reader.getInt32(pos, false)
-            pos += 4
-            offsetPt0[c] = idx
-          }
-        }
-        const pts = positions
-        return {
-          pts,
-          offsetPt0
-        }
-      }
-      pos = posOK // valid VTK file
-      let npt = 0
-      const offsetPt0 = []
-      const pts = []
-      offsetPt0.push(npt) // 1st streamline starts at 0
-      for (let c = 0; c < n_count; c++) {
-        const numPoints = reader.getInt32(pos, false)
-        pos += 4
-        npt += numPoints
-        offsetPt0.push(npt)
-        for (let i = 0; i < numPoints; i++) {
-          const idx = reader.getInt32(pos, false) * 3
-          pos += 4
-          pts.push(positions[idx + 0])
-          pts.push(positions[idx + 1])
-          pts.push(positions[idx + 2])
-        } // for numPoints: number of segments in streamline
-      } // for n_count: number of streamlines
-      return {
-        pts,
-        offsetPt0
-      }
-    } else if (items[0].includes('TRIANGLE_STRIPS')) {
-      const nstrip = parseInt(items[1])
-      for (let i = 0; i < nstrip; i++) {
-        const ntri = reader.getInt32(pos, false) - 2 // -2 as triangle strip is creates pts - 2 faces
-        pos += 4
-        for (let t = 0; t < ntri; t++) {
-          if (t % 2) {
-            // preserve winding order
-            tris.push(reader.getInt32(pos + 8, false))
-            tris.push(reader.getInt32(pos + 4, false))
-            tris.push(reader.getInt32(pos, false))
-          } else {
-            tris.push(reader.getInt32(pos, false))
-            tris.push(reader.getInt32(pos + 4, false))
-            tris.push(reader.getInt32(pos + 8, false))
-          }
-          pos += 4
-        } // for each triangle
-        pos += 8
-      } // for each strip
-    } else if (items[0].includes('POLYGONS')) {
-      const npoly = parseInt(items[1])
-      for (let i = 0; i < npoly; i++) {
-        const ntri = reader.getInt32(pos, false) - 2 // 3 for single triangle, 4 for 2 triangles
-        if (i === 0 && ntri > 65535) {
-          alert('Invalid VTK binary polygons using little-endian data (MRtrix)')
-          return null
-        }
-        pos += 4
-        const fx = reader.getInt32(pos, false)
-        pos += 4
-        let fy = reader.getInt32(pos, false)
-        pos += 4
-        for (let t = 0; t < ntri; t++) {
-          const fz = reader.getInt32(pos, false)
-          pos += 4
-          tris.push(fx)
-          tris.push(fy)
-          tris.push(fz)
-          fy = fz
-        } // for each triangle
-      } // for each polygon
-    } else {
-      alert('Unsupported binary VTK datatype ', items[0])
-    }
-    const indices = new Int32Array(tris)
-    return {
-      positions,
-      indices
-    }
-  } // readVTK()
+  static readVTK(buffer: ArrayBuffer): VTK {
+    return readVTK(buffer)
+  }
 
   // read brainsuite DFS format
   // http://brainsuite.org/formats/dfs/
-  static readDFS(buffer /*, n_vert = 0 */) {
-    // Does not play with other formats: vertex positions do not use Aneterior Commissure as origin
-    const reader = new DataView(buffer)
-    const magic = reader.getUint32(0, true) // "DFS_"
-    const LE = reader.getUint16(4, true) // "LE"
-    if (magic !== 1599292996 || LE !== 17740) {
-      console.log('Not a little-endian brainsuite DFS mesh')
-    }
-    const hdrBytes = reader.getUint32(12, true)
-    // var mdoffset = reader.getUint32(16, true);
-    // var pdoffset = reader.getUint32(20, true);
-    const nface = reader.getUint32(24, true) // number of triangles
-    const nvert = reader.getUint32(28, true)
-    // var nStrips = reader.getUint32(32, true); //deprecated
-    // var stripSize = reader.getUint32(36, true); //deprecated
-    // var normals = reader.getUint32(40, true);
-    // var uvStart = reader.getUint32(44, true);
-    const vcoffset = reader.getUint32(48, true) // vertexColor offset
-    // var precision = reader.getUint32(52, true);
-    // float64 orientation[4][4]; //4x4 matrix, affine transformation to world coordinates*)
-    let pos = hdrBytes
-    const indices = new Int32Array(buffer, pos, nface * 3, true)
-    pos += nface * 3 * 4
-    const positions = new Float32Array(buffer, pos, nvert * 3, true)
-    // oops, triangle winding opposite of CCW convention
-    for (let i = 0; i < nvert * 3; i += 3) {
-      const tmp = positions[i]
-      positions[i] = positions[i + 1]
-      positions[i + 1] = tmp
-    }
-    let colors = null
-    if (vcoffset >= 0) {
-      colors = new Float32Array(buffer, vcoffset, nvert * 3, true)
-    }
-    return {
-      positions,
-      indices,
-      colors
-    }
+  static readDFS(buffer: ArrayBuffer): DFS {
+    return readDFS(buffer)
   }
 
   // read surfice MZ3 format
   // https://github.com/neurolabusc/surf-ice/tree/master/mz3
-  static readMZ3(buffer, n_vert = 0) {
-    // ToDo: mz3 always little endian: support big endian? endian https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float32Array
-    if (buffer.byteLength < 20) {
-      // 76 for raw, not sure of gzip
-      throw new Error('File too small to be mz3: bytes = ' + buffer.byteLength)
-    }
-    let reader = new DataView(buffer)
-    // get number of vertices and faces
-    let magic = reader.getUint16(0, true)
-    let _buffer = buffer
-    if (magic === 35615 || magic === 8075) {
-      // gzip signature 0x1F8B in little and big endian
-      const raw = decompressSync(new Uint8Array(buffer))
-      reader = new DataView(raw.buffer)
-      magic = reader.getUint16(0, true)
-      _buffer = raw.buffer
-      // throw new Error( 'Gzip MZ3 file' );
-    }
-    const attr = reader.getUint16(2, true)
-    const nface = reader.getUint32(4, true)
-    let nvert = reader.getUint32(8, true)
-    const nskip = reader.getUint32(12, true)
-    utiltiesLogger.debug('MZ3 magic %d attr %d face %d vert %d skip %d', magic, attr, nface, nvert, nskip)
-    if (magic !== 23117) {
-      throw new Error('Invalid MZ3 file')
-    }
-    const isFace = (attr & 1) !== 0
-    const isVert = (attr & 2) !== 0
-    const isRGBA = (attr & 4) !== 0
-    let isSCALAR = (attr & 8) !== 0
-    const isDOUBLE = (attr & 16) !== 0
-    // var isAOMap = attr & 32;
-    if (attr > 63) {
-      throw new Error('Unsupported future version of MZ3 file')
-    }
-    let bytesPerScalar = 4
-    if (isDOUBLE) {
-      bytesPerScalar = 8
-    }
-    let NSCALAR = 0
-    if (n_vert > 0 && !isFace && nface < 1 && !isRGBA) {
-      isSCALAR = true
-    }
-    if (isSCALAR) {
-      const FSizeWoScalars = 16 + nskip + isFace * nface * 12 + isVert * n_vert * 12 + isRGBA * n_vert * 4
-      const scalarFloats = Math.floor((_buffer.byteLength - FSizeWoScalars) / bytesPerScalar)
-      if (nvert !== n_vert && scalarFloats % n_vert === 0) {
-        console.log('Issue 729: mz3 mismatch scalar NVERT does not match mesh NVERT')
-        nvert = n_vert
-      }
-      NSCALAR = Math.floor(scalarFloats / nvert)
-      if (NSCALAR < 1) {
-        console.log('Corrupt MZ3: file reports NSCALAR but not enough bytes')
-        isSCALAR = false
-      }
-    }
-    if (nvert < 3 && n_vert < 3) {
-      throw new Error('Not a mesh MZ3 file (maybe scalar)')
-    }
-    if (n_vert > 0 && n_vert !== nvert) {
-      console.log('Layer has ' + nvert + 'vertices, but background mesh has ' + n_vert)
-    }
-    let filepos = 16 + nskip
-    let indices = null
-    if (isFace) {
-      indices = new Int32Array(_buffer, filepos, nface * 3, true)
-      filepos += nface * 3 * 4
-    }
-    let positions = null
-    if (isVert) {
-      positions = new Float32Array(_buffer, filepos, nvert * 3, true)
-      filepos += nvert * 3 * 4
-    }
-    let colors = null
-    if (isRGBA) {
-      colors = new Float32Array(nvert * 3)
-      const rgba8 = new Uint8Array(_buffer, filepos, nvert * 4, true)
-      filepos += nvert * 4
-      let k3 = 0
-      let k4 = 0
-      for (let i = 0; i < nvert; i++) {
-        for (let j = 0; j < 3; j++) {
-          // for RGBA
-          colors[k3] = rgba8[k4] / 255
-          k3++
-          k4++
-        }
-        k4++ // skip Alpha
-      } // for i
-    } // if isRGBA
-    let scalars = []
-    if (!isRGBA && isSCALAR && NSCALAR > 0) {
-      if (isDOUBLE) {
-        const flt64 = new Float64Array(_buffer, filepos, NSCALAR * nvert)
-        scalars = Float32Array.from(flt64)
-      } else {
-        scalars = new Float32Array(_buffer, filepos, NSCALAR * nvert)
-      }
-      filepos += bytesPerScalar * NSCALAR * nvert
-    }
-    if (n_vert > 0) {
-      return scalars
-    }
-    return {
-      positions,
-      indices,
-      scalars,
-      colors
-    }
-  } // readMZ3()
+  static readMZ3(buffer: ArrayBuffer, n_vert = 0): MZ3 {
+    return readMZ3(buffer, n_vert)
+  }
 
   // read PLY format
   // https://en.wikipedia.org/wiki/PLY_(file_format)
