@@ -1,13 +1,11 @@
-import { decompressSync } from 'fflate/browser'
-import { NVMesh } from '../nvmesh.js'
-import { ReadResult } from '../types.js'
+import { NVMeshLayer, ReadResult } from '../types.js'
 import { readNII2 } from '../nii2.js'
+import { NVMesh } from '../nvmesh.js'
 import { TRACT } from './tract.js'
 import { TRX, readTRX } from './trx.js'
 import { TCK, readTCK } from './tck.js'
 import { TRK, readTRK } from './trk.js'
 import { TxtVtk, readTxtVTK } from './txt-vtk.js'
-import { readLayer } from './layer.js'
 import { readSMP } from './smp.js'
 import { readSTC } from './stc.js'
 import { readCURV } from './curv.js'
@@ -29,11 +27,124 @@ import { readNII } from './nii.js'
 import { MGH, readMGH } from './mgh.js'
 import { X3D, readX3D } from './x3d.js'
 import { GII, readGII } from './gii.js'
+import { MZ3, readMZ3 } from './mz3.js'
 
 /**
  * Class to load different mesh formats
  */
 export class NVMeshLoaders {
+  // read mesh overlay to influence vertex colors
+  static readLayer(
+    name: string,
+    buffer: Buffer,
+    nvmesh: NVMesh,
+    opacity = 0.5,
+    colormap = 'warm',
+    colormapNegative = 'winter',
+    useNegativeCmap = false,
+    cal_min = null,
+    cal_max = null,
+    isOutlineBorder = false
+  ): void {
+    const layer: Partial<NVMeshLayer> = {
+      colormapInvert: false,
+      alphaThreshold: false,
+      isTransparentBelowCalMin: true,
+      isAdditiveBlend: false,
+      colorbarVisible: true
+    }
+
+    const isReadColortables = true
+    // TODO can we guarantee this?
+    const n_vert = nvmesh.vertexCount! / 3 // each vertex has XYZ component
+    if (n_vert < 3) {
+      return
+    }
+    const re = /(?:\.([^.]+))?$/
+    let ext = re.exec(name)![1]
+    ext = ext.toUpperCase()
+    if (ext === 'GZ') {
+      ext = re.exec(name.slice(0, -3))![1] // img.trk.gz -> img.trk
+      ext = ext.toUpperCase()
+    }
+    if (ext === 'MZ3') {
+      layer.values = readMZ3(buffer, n_vert) as Float32Array
+    } else if (ext === 'ANNOT') {
+      if (!isReadColortables) {
+        layer.values = NVMeshLoaders.readANNOT(buffer, n_vert) as Uint32Array
+      } else {
+        const obj = NVMeshLoaders.readANNOT(buffer, n_vert, true)
+        if ('scalars' in obj) {
+          layer.values = obj.scalars
+          layer.colormapLabel = obj.colormapLabel
+        } // unable to decode colormapLabel
+        else {
+          layer.values = obj
+        }
+      }
+    } else if (ext === 'CRV' || ext === 'CURV') {
+      layer.values = NVMeshLoaders.readCURV(buffer, n_vert)
+      layer.isTransparentBelowCalMin = false
+    } else if (ext === 'GII') {
+      const obj = NVMeshLoaders.readGII(buffer, n_vert)
+      layer.values = obj.scalars // colormapLabel
+      layer.colormapLabel = obj.colormapLabel
+    } else if (ext === 'MGH' || ext === 'MGZ') {
+      if (!isReadColortables) {
+        layer.values = NVMeshLoaders.readMGH(buffer, n_vert) as number[]
+      } else {
+        const obj = NVMeshLoaders.readMGH(buffer, n_vert, true)
+        if ('scalars' in obj) {
+          layer.values = obj.scalars
+          layer.colormapLabel = obj.colormapLabel
+        } // unable to decode colormapLabel
+        else {
+          layer.values = obj
+        }
+      }
+    } else if (ext === 'NII') {
+      layer.values = NVMeshLoaders.readNII(buffer, n_vert)
+    } else if (ext === 'SMP') {
+      layer.values = NVMeshLoaders.readSMP(buffer, n_vert)
+    } else if (ext === 'STC') {
+      layer.values = NVMeshLoaders.readSTC(buffer, n_vert)
+    } else {
+      console.log('Unknown layer overlay format ' + name)
+      return
+    }
+    if (!layer.values) {
+      return
+    }
+    layer.nFrame4D = layer.values.length / n_vert
+    layer.frame4D = 0
+    layer.isOutlineBorder = isOutlineBorder
+    // determine global min..max
+    let mn = layer.values[0]
+    let mx = layer.values[0]
+    for (let i = 0; i < layer.values.length; i++) {
+      mn = Math.min(mn, layer.values[i])
+      mx = Math.max(mx, layer.values[i])
+    }
+    // console.log('layer range: ', mn, mx);
+    layer.global_min = mn
+    layer.global_max = mx
+    layer.cal_min = cal_min
+    if (!cal_min) {
+      layer.cal_min = mn
+    }
+    layer.cal_max = cal_max
+    if (!cal_max) {
+      layer.cal_max = mx
+    }
+    layer.cal_minNeg = NaN
+    layer.cal_maxNeg = NaN
+    layer.opacity = opacity
+    layer.colormap = colormap
+    layer.colormapNegative = colormapNegative
+    layer.useNegativeCmap = useNegativeCmap
+    nvmesh.layers.push(layer as NVMeshLayer)
+  }
+
   // read undocumented AFNI tract.niml format streamlines
   static readTRACT(buffer: ArrayBuffer): TRACT {
     return this.readTRACT(buffer)
@@ -61,33 +172,6 @@ export class NVMeshLoaders {
   // read legacy VTK text format file
   static readTxtVTK(buffer: ArrayBuffer): TxtVtk {
     return readTxtVTK(buffer)
-  }
-
-  // read mesh overlay to influence vertex colors
-  static readLayer(
-    name: string,
-    buffer: ArrayBuffer,
-    nvmesh: NVMesh,
-    opacity = 0.5,
-    colormap = 'warm',
-    colormapNegative = 'winter',
-    useNegativeCmap = false,
-    cal_min = null,
-    cal_max = null,
-    isOutlineBorder = false
-  ): void {
-    readLayer(
-      name,
-      buffer,
-      nvmesh,
-      opacity,
-      colormap,
-      colormapNegative,
-      useNegativeCmap,
-      cal_min,
-      cal_max,
-      isOutlineBorder
-    )
   }
 
   // read brainvoyager smp format file
@@ -141,115 +225,8 @@ export class NVMeshLoaders {
 
   // read surfice MZ3 format
   // https://github.com/neurolabusc/surf-ice/tree/master/mz3
-  static readMZ3(buffer: ArrayBuffer, n_vert = 0) {
-    // ToDo: mz3 always little endian: support big endian? endian https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float32Array
-    if (buffer.byteLength < 20) {
-      // 76 for raw, not sure of gzip
-      throw new Error('File too small to be mz3: bytes = ' + buffer.byteLength)
-    }
-    let reader = new DataView(buffer)
-    // get number of vertices and faces
-    let magic = reader.getUint16(0, true)
-    let _buffer = buffer
-    if (magic === 35615 || magic === 8075) {
-      // gzip signature 0x1F8B in little and big endian
-      const raw = decompressSync(new Uint8Array(buffer))
-      reader = new DataView(raw.buffer)
-      magic = reader.getUint16(0, true)
-      _buffer = raw.buffer
-      // throw new Error( 'Gzip MZ3 file' );
-    }
-    const attr = reader.getUint16(2, true)
-    const nface = reader.getUint32(4, true)
-    let nvert = reader.getUint32(8, true)
-    const nskip = reader.getUint32(12, true)
-    console.log('MZ3 magic %d attr %d face %d vert %d skip %d', magic, attr, nface, nvert, nskip)
-    if (magic !== 23117) {
-      throw new Error('Invalid MZ3 file')
-    }
-    const isFace = (attr & 1) !== 0
-    const isVert = (attr & 2) !== 0
-    const isRGBA = (attr & 4) !== 0
-    let isSCALAR = (attr & 8) !== 0
-    const isDOUBLE = (attr & 16) !== 0
-    // var isAOMap = attr & 32;
-    if (attr > 63) {
-      throw new Error('Unsupported future version of MZ3 file')
-    }
-    let bytesPerScalar = 4
-    if (isDOUBLE) {
-      bytesPerScalar = 8
-    }
-    let NSCALAR = 0
-    if (n_vert > 0 && !isFace && nface < 1 && !isRGBA) {
-      isSCALAR = true
-    }
-    if (isSCALAR) {
-      const FSizeWoScalars = 16 + nskip + isFace * nface * 12 + isVert * n_vert * 12 + isRGBA * n_vert * 4
-      const scalarFloats = Math.floor((_buffer.byteLength - FSizeWoScalars) / bytesPerScalar)
-      if (nvert !== n_vert && scalarFloats % n_vert === 0) {
-        console.log('Issue 729: mz3 mismatch scalar NVERT does not match mesh NVERT')
-        nvert = n_vert
-      }
-      NSCALAR = Math.floor(scalarFloats / nvert)
-      if (NSCALAR < 1) {
-        console.log('Corrupt MZ3: file reports NSCALAR but not enough bytes')
-        isSCALAR = false
-      }
-    }
-    if (nvert < 3 && n_vert < 3) {
-      throw new Error('Not a mesh MZ3 file (maybe scalar)')
-    }
-    if (n_vert > 0 && n_vert !== nvert) {
-      console.log('Layer has ' + nvert + 'vertices, but background mesh has ' + n_vert)
-    }
-    let filepos = 16 + nskip
-    let indices = null
-    if (isFace) {
-      indices = new Int32Array(_buffer, filepos, nface * 3, true)
-      filepos += nface * 3 * 4
-    }
-    let positions = null
-    if (isVert) {
-      positions = new Float32Array(_buffer, filepos, nvert * 3, true)
-      filepos += nvert * 3 * 4
-    }
-    let colors = null
-    if (isRGBA) {
-      colors = new Float32Array(nvert * 3)
-      const rgba8 = new Uint8Array(_buffer, filepos, nvert * 4, true)
-      filepos += nvert * 4
-      let k3 = 0
-      let k4 = 0
-      for (let i = 0; i < nvert; i++) {
-        for (let j = 0; j < 3; j++) {
-          // for RGBA
-          colors[k3] = rgba8[k4] / 255
-          k3++
-          k4++
-        }
-        k4++ // skip Alpha
-      } // for i
-    } // if isRGBA
-    let scalars = []
-    if (!isRGBA && isSCALAR && NSCALAR > 0) {
-      if (isDOUBLE) {
-        const flt64 = new Float64Array(_buffer, filepos, NSCALAR * nvert)
-        scalars = Float32Array.from(flt64)
-      } else {
-        scalars = new Float32Array(_buffer, filepos, NSCALAR * nvert)
-      }
-      filepos += bytesPerScalar * NSCALAR * nvert
-    }
-    if (n_vert > 0) {
-      return scalars
-    }
-    return {
-      positions,
-      indices,
-      scalars,
-      colors
-    }
+  static readMZ3(buffer: ArrayBuffer, n_vert = 0): MZ3 {
+    return readMZ3(buffer, n_vert)
   } // readMZ3()
 
   // read PLY format

@@ -1,3 +1,4 @@
+import { LUT } from './colortables.js'
 import { NVLabel3D } from './nvlabel.js'
 
 export type ColorArray = [number, number, number] | [number, number, number, number]
@@ -107,12 +108,12 @@ export type NVMeshLayer = {
   global_max: number
   nFrame4D: number
   frame4D: number
-  colormapLabel?: string[]
+  colormapLabel?: LUT
   colormapInvert: boolean
   base64?: string
   colorbarVisible: boolean
 
-  values?: number[]
+  values?: number[] | Float32Array | Uint32Array
 }
 
 export type ReadResult = {
