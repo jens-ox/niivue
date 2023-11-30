@@ -3,6 +3,9 @@ module.exports = {
   env: {
     browser: true
   },
+  globals: {
+    niivue: true
+  },
   ignorePatterns: ['dist/**/*', 'devdocs/**/*'],
   extends: ['standard', 'plugin:@typescript-eslint/recommended', 'plugin:prettier/recommended'],
   parser: '@typescript-eslint/parser',
