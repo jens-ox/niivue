@@ -58,16 +58,17 @@ import {
 import { orientCube } from '../orientCube.js'
 import { NiivueObject3D } from '../niivue-object3D.js'
 import { MeshType, NVMesh, NVMeshFromUrlOptions } from '../nvmesh.js'
-import { Log } from '../logger'
+import { Log } from '../logger.js'
 import defaultMatCap from '../matcaps/Shiny.jpg'
 import defaultFontPNG from '../fonts/Roboto-Regular.png'
 import defaultFontMetrics from '../fonts/Roboto-Regular.json'
-import { cmapper } from '../colortables'
+import { cmapper } from '../colortables.js'
 import { NVDocument, SLICE_TYPE, DRAG_MODE, MULTIPLANAR_TYPE, DEFAULT_OPTIONS } from '../nvdocument.js'
 
 import { LabelTextAlignment, LabelLineTerminator, NVLabel3D } from '../nvlabel.js'
 import { NVConnectome } from '../nvconnectome.js'
-import { NVImage, NVImageFromUrlOptions, NVIMAGE_TYPE } from '../nvimage'
+import { NVImage } from '../nvimage/index.js'
+import { imageFromUrlOptions, NVImageType as NVIMAGE_TYPE } from '../nvimage/utils.js'
 import { NVUtilities } from '../nvutilities.js'
 import {
   clamp,
@@ -84,10 +85,10 @@ import {
   unpackFloatFromVec4i
 } from './utils.js'
 export { NVMesh, NVMeshFromUrlOptions } from '../nvmesh.js'
-export { NVController } from '../nvcontroller'
-export { ColorTables as colortables, cmapper } from '../colortables'
+export { NVController } from '../nvcontroller.js'
+export { ColorTables as colortables, cmapper } from '../colortables.js'
 
-export { NVImage, NVImageFromUrlOptions } from '../nvimage'
+export { NVImage, imageFromUrlOptions } from '../nvimage/index.js'
 export { NVDocument, SLICE_TYPE } from '../nvdocument.js'
 export { NVUtilities } from '../nvutilities.js'
 export { LabelTextAlignment, LabelLineTerminator, NVLabel3DStyle, NVLabel3D } from '../nvlabel.js'
@@ -199,367 +200,372 @@ const RIGHT_MOUSE_BUTTON = 2
  * let niivue = new Niivue({crosshairColor: [0,1,0,0.5], textHeight: 0.5}) // a see-through green crosshair, and larger text labels
  */
 export class Niivue {
+  canvas = null // the reference to the canvas element on the page
+  gl = null // the gl context
+  isBusy = false // flag to indicate if the scene is busy drawing
+  needsRefresh = false // flag to indicate if the scene needs to be redrawn
+  colormapTexture = null // the GPU memory storage of the colormap
+  colormapLists = [] // one entry per colorbar: min, max, tic
+  volumeTexture = null // the GPU memory storage of the volume
+  gradientTexture = null // 3D texture for volume rnedering lighting
+  gradientTextureAmount = 0.0
+  drawTexture = null // the GPU memory storage of the drawing
+  drawUndoBitmaps = [] // array of drawBitmaps for undo
+  drawLut = cmapper.makeDrawLut('$itksnap') // the color lookup table for drawing
+  drawOpacity = 0.8 // opacity of drawing (default)
+  renderDrawAmbientOcclusion = 0.4
+  colorbarHeight = 0 // height in pixels, set when colorbar is drawn
+  drawPenLocation = [NaN, NaN, NaN]
+  drawPenAxCorSag = -1 // do not allow pen to drag between Sagittal/Coronal/Axial
+  drawFillOverwrites = true // if true, fill overwrites existing drawing
+  drawPenFillPts = [] // store mouse points for filled pen
+  overlayTexture = null
+  overlayTextureID = []
+  sliceMMShader = null
+  orientCubeShader = null
+  orientCubeShaderVAO = null
+  rectShader = null
+  renderShader = null
+  renderGradientShader = null
+  renderSliceShader = null
+  renderVolumeShader = null
+  pickingMeshShader = null
+  pickingImageShader = null
+  colorbarShader = null
+  fontShader = null
+  fontTexture = null
+  circleShader = null
+  matCapTexture = null
+  bmpShader = null
+  bmpTexture = null // thumbnail WebGLTexture object
+  thumbnailVisible = false
+  bmpTextureWH = 1.0 // thumbnail width/height ratio
+  growCutShader = null
+  orientShaderAtlasU = null
+  orientShaderAtlasI = null
+  orientShaderU = null
+  orientShaderI = null
+  orientShaderF = null
+  orientShaderRGBU = null
+  surfaceShader = null
+  blurShader = null
+  sobelShader = null
+  genericVAO = null // used for 2D slices, 2D lines, 2D Fonts
+  unusedVAO = null
+  crosshairs3D = null
+  DEFAULT_FONT_GLYPH_SHEET = defaultFontPNG // "/fonts/Roboto-Regular.png";
+  DEFAULT_FONT_METRICS = defaultFontMetrics // "/fonts/Roboto-Regular.json";
+  fontMets = null
+  backgroundMasksOverlays = 0
+  overlayOutlineWidth = 0 // float, 0 for none
+  overlayAlphaShader = 1 // float, 1 for opaque
+  isAlphaClipDark = false
+
+  syncOpts = {}
+  readyForSync = false
+
+  // UI Data
+  uiData = {
+    mousedown: false,
+    touchdown: false,
+    mouseButtonLeftDown: false,
+    mouseButtonCenterDown: false,
+    mouseButtonRightDown: false,
+    mouseDepthPicker: false,
+    clickedTile: -1,
+
+    pan2DxyzmmAtMouseDown: [0, 0, 0, 1],
+    prevX: 0,
+    prevY: 0,
+    currX: 0,
+    currY: 0,
+    currentTouchTime: 0,
+    lastTouchTime: 0,
+    touchTimer: null,
+    doubleTouch: false,
+    isDragging: false,
+    dragStart: [0.0, 0.0],
+    dragEnd: [0.0, 0.0],
+    dragClipPlaneStartDepthAziElev: [0, 0, 0],
+    lastTwoTouchDistance: 0,
+    multiTouchGesture: false
+  }
+
+  back = {} // base layer; defines image space to work in. Defined as this.volumes[0] in Niivue.loadVolumes
+  overlays = [] // layers added on top of base image (e.g. masks or stat maps). Essentially everything after volumes[0] is an overlay. So is this necessary?
+  deferredVolumes = []
+  deferredMeshes = []
+  furthestVertexFromOrigin = 100
+  volScale = []
+  vox = []
+  mousePos = [0, 0]
+  screenSlices = [] // empty array
+
+  otherNV = null // another niivue instance that we wish to sync position with
+  volumeObject3D = null
+  pivot3D = [0, 0, 0] // center for rendering rotation
+  furthestFromPivot = 10.0 // most distant point from pivot
+
+  currentClipPlaneIndex = 0
+  lastCalled = new Date().getTime()
+
+  selectedObjectId = -1
+  CLIP_PLANE_ID = 1
+  VOLUME_ID = 254
+  DISTANCE_FROM_CAMERA = -0.54
+  graph = {
+    LTWH: [0, 0, 640, 480],
+    opacity: 0.0,
+    vols: [0], // e.g. timeline for background volume only, e.g. [0,2] for first and third volumes
+    autoSizeMultiplanar: false,
+    normalizeValues: false
+  }
+
+  meshShaders = [
+    {
+      Name: 'Phong',
+      Frag: fragMeshShader
+    },
+    {
+      Name: 'Matte',
+      Frag: fragMeshMatteShader
+    },
+    {
+      Name: 'Harmonic',
+      Frag: fragMeshShaderSHBlue
+    },
+    {
+      Name: 'Hemispheric',
+      Frag: fragMeshHemiShader
+    },
+    {
+      Name: 'Edge',
+      Frag: fragMeshEdgeShader
+    },
+    {
+      Name: 'Outline',
+      Frag: fragMeshOutlineShader
+    },
+    {
+      Name: 'Toon',
+      Frag: fragMeshToonShader
+    },
+    {
+      Name: 'Flat',
+      Frag: fragFlatMeshShader
+    },
+    {
+      Name: 'Matcap',
+      Frag: fragMeshMatcapShader
+    }
+  ]
+
+  // Event listeners
+
+  /**
+   * callback function to run when the right mouse button is released after dragging
+   * @type {function}
+   * @example
+   * niivue.onDragRelease = () => {
+   *   console.log('drag ended')
+   * }
+   */
+  onDragRelease = (): void => {} // function to call when contrast drag is released by default. Can be overridden by user
+
+  /**
+   * callback function to run when the left mouse button is released
+   * @type {function}
+   * @example
+   * niivue.onMouseUp = () => {
+   *   console.log('mouse up')
+   * }
+   */
+  onMouseUp = (): void => {}
+  /**
+   * callback function to run when the crosshair location changes
+   * @type {function}
+   * @example
+   * niivue.onLocationChange = (data) => {
+   * console.log('location changed')
+   * console.log('mm: ', data.mm)
+   * console.log('vox: ', data.vox)
+   * console.log('frac: ', data.frac)
+   * console.log('values: ', data.values)
+   * }
+   */
+  onLocationChange = (): void => {}
+  /**
+   * callback function to run when the user changes the intensity range with the selection box action (right click)
+   * @type {function}
+   * @example
+   * niivue.onIntensityChange = (volume) => {
+   * console.log('intensity changed')
+   * console.log('volume: ', volume)
+   * }
+   */
+  onIntensityChange = (): void => {}
+
+  /**
+   * callback function to run when a new volume is loaded
+   * @type {function}
+   * @example
+   * niivue.onImageLoaded = (volume) => {
+   * console.log('volume loaded')
+   * console.log('volume: ', volume)
+   * }
+   */
+  onImageLoaded = (): void => {}
+
+  /**
+   * callback function to run when a new mesh is loaded
+   * @type {function}
+   * @example
+   * niivue.onMeshLoaded = (mesh) => {
+   * console.log('mesh loaded')
+   * console.log('mesh: ', mesh)
+   * }
+   */
+  onMeshLoaded = (): void => {}
+
+  /**
+   * callback function to run when the user changes the volume when a 4D image is loaded
+   * @type {function}
+   * @example
+   * niivue.onFrameChange = (volume, frameNumber) => {
+   * console.log('frame changed')
+   * console.log('volume: ', volume)
+   * console.log('frameNumber: ', frameNumber)
+   * }
+   */
+  onFrameChange = (): void => {}
+
+  /**
+   * callback function to run when niivue reports an error
+   * @type {function}
+   * @example
+   * niivue.onError = (error) => {
+   * console.log('error: ', error)
+   * }
+   */
+  onError = (): void => {}
+
+  /**
+   * callback function to run when niivue reports detailed info
+   * @type {function}
+   * @example
+   * niivue.onInfo = (info) => {
+   * console.log('info: ', info)
+   * }
+   */
+  onInfo = (): void => {}
+
+  /**
+   * callback function to run when niivue reports a warning
+   * @type {function}
+   * @example
+   * niivue.onWarn = (warn) => {
+   * console.log('warn: ', warn)
+   * }
+   */
+  onWarn = (): void => {}
+
+  /**
+   * callback function to run when niivue reports a debug message
+   * @type {function}
+   * @example
+   * niivue.onDebug = (debug) => {
+   * console.log('debug: ', debug)
+   * }
+   */
+  onDebug = (): void => {}
+
+  /**
+   * callback function to run when a volume is added from a url
+   * @type {function}
+   * @example
+   * niivue.onVolumeAddedFromUrl = (imageOptions, volume) => {
+   * console.log('volume added from url')
+   * console.log('imageOptions: ', imageOptions)
+   * console.log('volume: ', volume)
+   * }
+   */
+  onVolumeAddedFromUrl = (): void => {}
+  onVolumeWithUrlRemoved = (): void => {}
+
+  /**
+   * callback function to run when updateGLVolume is called (most users will not need to use this)
+   * @type {function}
+   * @example
+   * niivue.onVolumeUpdated = () => {
+   * console.log('volume updated')
+   * }
+   */
+  onVolumeUpdated = (): void => {}
+
+  /**
+   * callback function to run when a mesh is added from a url
+   * @type {function}
+   * @example
+   * niivue.onMeshAddedFromUrl = (meshOptions, mesh) => {
+   * console.log('mesh added from url')
+   * console.log('meshOptions: ', meshOptions)
+   * console.log('mesh: ', mesh)
+   * }
+   */
+  onMeshAddedFromUrl = (): void => {}
+
+  // this seems redundant with onMeshLoaded
+  onMeshAdded = (): void => {}
+  onMeshWithUrlRemoved = (): void => {}
+
+  // not implemented anywhere...
+  onZoom3DChange = (): void => {}
+
+  /**
+   * callback function to run when the user changes the rotation of the 3D rendering
+   * @type {function}
+   * @example
+   * niivue.onAzimuthElevationChange = (azimuth, elevation) => {
+   * console.log('azimuth: ', azimuth)
+   * console.log('elevation: ', elevation)
+   * }
+   */
+  onAzimuthElevationChange = (): void => {}
+
+  /**
+   * callback function to run when the user changes the clip plane
+   * @type {function}
+   * @example
+   * niivue.onClipPlaneChange = (clipPlane) => {
+   * console.log('clipPlane: ', clipPlane)
+   * }
+   */
+  onClipPlaneChange = (): void => {}
+  onCustomMeshShaderAdded = (): void => {}
+  onMeshShaderChanged = (): void => {}
+  onMeshPropertyChanged = (): void => {}
+
+  /**
+   * callback function to run when the user loads a new NiiVue document
+   * @type {function}
+   * @example
+   * niivue.onDocumentLoaded = (document) => {
+   * console.log('document: ', document)
+   * }
+   */
+  onDocumentLoaded = (): void => {}
+
+  document = new NVDocument()
+
+  opts = { ...DEFAULT_OPTIONS }
+
   constructor(options = {}) {
-    this.canvas = null // the reference to the canvas element on the page
-    this.gl = null // the gl context
-    this.isBusy = false // flag to indicate if the scene is busy drawing
-    this.needsRefresh = false // flag to indicate if the scene needs to be redrawn
-    this.colormapTexture = null // the GPU memory storage of the colormap
-    this.colormapLists = [] // one entry per colorbar: min, max, tic
-    this.volumeTexture = null // the GPU memory storage of the volume
-    this.gradientTexture = null // 3D texture for volume rnedering lighting
-    this.gradientTextureAmount = 0.0
-    this.drawTexture = null // the GPU memory storage of the drawing
-    this.drawUndoBitmaps = [] // array of drawBitmaps for undo
-    this.drawLut = cmapper.makeDrawLut('$itksnap') // the color lookup table for drawing
-    this.drawOpacity = 0.8 // opacity of drawing (default)
-    this.renderDrawAmbientOcclusion = 0.4
-    this.colorbarHeight = 0 // height in pixels, set when colorbar is drawn
-    this.drawPenLocation = [NaN, NaN, NaN]
-    this.drawPenAxCorSag = -1 // do not allow pen to drag between Sagittal/Coronal/Axial
-    this.drawFillOverwrites = true // if true, fill overwrites existing drawing
-    this.drawPenFillPts = [] // store mouse points for filled pen
-    this.overlayTexture = null
-    this.overlayTextureID = []
-    this.sliceMMShader = null
-    this.orientCubeShader = null
-    this.orientCubeShaderVAO = null
-    this.rectShader = null
-    this.renderShader = null
-    this.renderGradientShader = null
-    this.renderSliceShader = null
-    this.renderVolumeShader = null
-    this.pickingMeshShader = null
-    this.pickingImageShader = null
-    this.colorbarShader = null
-    this.fontShader = null
-    this.fontTexture = null
-    this.circleShader = null
-    this.matCapTexture = null
-    this.bmpShader = null
-    this.bmpTexture = null // thumbnail WebGLTexture object
-    this.thumbnailVisible = false
-    this.bmpTextureWH = 1.0 // thumbnail width/height ratio
-    this.growCutShader = null
-    this.orientShaderAtlasU = null
-    this.orientShaderAtlasI = null
-    this.orientShaderU = null
-    this.orientShaderI = null
-    this.orientShaderF = null
-    this.orientShaderRGBU = null
-    this.surfaceShader = null
-    this.blurShader = null
-    this.sobelShader = null
-    this.genericVAO = null // used for 2D slices, 2D lines, 2D Fonts
-    this.unusedVAO = null
-    this.crosshairs3D = null
-    this.DEFAULT_FONT_GLYPH_SHEET = defaultFontPNG // "/fonts/Roboto-Regular.png";
-    this.DEFAULT_FONT_METRICS = defaultFontMetrics // "/fonts/Roboto-Regular.json";
-    this.fontMets = null
-    this.backgroundMasksOverlays = 0
-    this.overlayOutlineWidth = 0 // float, 0 for none
-    this.overlayAlphaShader = 1 // float, 1 for opaque
-    this.isAlphaClipDark = false
-
-    this.syncOpts = {}
-    this.readyForSync = false
-
-    // UI Data
-    this.uiData = {}
-    this.uiData.mousedown = false
-    this.uiData.touchdown = false
-    this.uiData.mouseButtonLeftDown = false
-    this.uiData.mouseButtonCenterDown = false
-    this.uiData.mouseButtonRightDown = false
-    this.uiData.mouseDepthPicker = false
-    this.uiData.clickedTile = -1
-
-    this.uiData.pan2DxyzmmAtMouseDown = [0, 0, 0, 1]
-    this.uiData.prevX = 0
-    this.uiData.prevY = 0
-    this.uiData.currX = 0
-    this.uiData.currY = 0
-    this.uiData.currentTouchTime = 0
-    this.uiData.lastTouchTime = 0
-    this.uiData.touchTimer = null
-    this.uiData.doubleTouch = false
-    this.uiData.isDragging = false
-    this.uiData.dragStart = [0.0, 0.0]
-    this.uiData.dragEnd = [0.0, 0.0]
-    this.uiData.dragClipPlaneStartDepthAziElev = [0, 0, 0]
-    this.uiData.lastTwoTouchDistance = 0
-    this.uiData.multiTouchGesture = false
     this.uiData.loading$ = new Subject() // whether or not the scene is loading
     // mapping of keys (event strings) to rxjs subjects
     this.eventsToSubjects = {
       loading: this.uiData.loading$
     }
 
-    this.back = {} // base layer; defines image space to work in. Defined as this.volumes[0] in Niivue.loadVolumes
-    this.overlays = [] // layers added on top of base image (e.g. masks or stat maps). Essentially everything after this.volumes[0] is an overlay. So is this necessary?
-    this.deferredVolumes = []
-    this.deferredMeshes = []
-    this.furthestVertexFromOrigin = 100
-    this.volScale = []
-    this.vox = []
-    this.mousePos = [0, 0]
-    this.screenSlices = [] // empty array
-
-    this.otherNV = null // another niivue instance that we wish to sync position with
-    this.volumeObject3D = null
-    this.pivot3D = [0, 0, 0] // center for rendering rotation
-    this.furthestFromPivot = 10.0 // most distant point from pivot
-
-    this.currentClipPlaneIndex = 0
-    this.lastCalled = new Date().getTime()
-
-    this.selectedObjectId = -1
-    this.CLIP_PLANE_ID = 1
-    this.VOLUME_ID = 254
-    this.DISTANCE_FROM_CAMERA = -0.54
-    this.graph = []
-    this.graph.LTWH = [0, 0, 640, 480]
-    this.graph.opacity = 0.0
-    this.graph.vols = [0] // e.g. timeline for background volume only, e.g. [0,2] for first and third volumes
-    this.graph.autoSizeMultiplanar = false
-    this.graph.normalizeValues = false
-    this.meshShaders = [
-      {
-        Name: 'Phong',
-        Frag: fragMeshShader
-      },
-      {
-        Name: 'Matte',
-        Frag: fragMeshMatteShader
-      },
-      {
-        Name: 'Harmonic',
-        Frag: fragMeshShaderSHBlue
-      },
-      {
-        Name: 'Hemispheric',
-        Frag: fragMeshHemiShader
-      },
-      {
-        Name: 'Edge',
-        Frag: fragMeshEdgeShader
-      },
-      {
-        Name: 'Outline',
-        Frag: fragMeshOutlineShader
-      },
-      {
-        Name: 'Toon',
-        Frag: fragMeshToonShader
-      },
-      {
-        Name: 'Flat',
-        Frag: fragFlatMeshShader
-      },
-      {
-        Name: 'Matcap',
-        Frag: fragMeshMatcapShader
-      }
-    ]
-
-    // Event listeners
-
-    /**
-     * callback function to run when the right mouse button is released after dragging
-     * @type {function}
-     * @example
-     * niivue.onDragRelease = () => {
-     *   console.log('drag ended')
-     * }
-     */
-    this.onDragRelease = () => {} // function to call when contrast drag is released by default. Can be overridden by user
-
-    /**
-     * callback function to run when the left mouse button is released
-     * @type {function}
-     * @example
-     * niivue.onMouseUp = () => {
-     *   console.log('mouse up')
-     * }
-     */
-    this.onMouseUp = () => {}
-    /**
-     * callback function to run when the crosshair location changes
-     * @type {function}
-     * @example
-     * niivue.onLocationChange = (data) => {
-     * console.log('location changed')
-     * console.log('mm: ', data.mm)
-     * console.log('vox: ', data.vox)
-     * console.log('frac: ', data.frac)
-     * console.log('values: ', data.values)
-     * }
-     */
-    this.onLocationChange = () => {}
-    /**
-     * callback function to run when the user changes the intensity range with the selection box action (right click)
-     * @type {function}
-     * @example
-     * niivue.onIntensityChange = (volume) => {
-     * console.log('intensity changed')
-     * console.log('volume: ', volume)
-     * }
-     */
-    this.onIntensityChange = () => {}
-
-    /**
-     * callback function to run when a new volume is loaded
-     * @type {function}
-     * @example
-     * niivue.onImageLoaded = (volume) => {
-     * console.log('volume loaded')
-     * console.log('volume: ', volume)
-     * }
-     */
-    this.onImageLoaded = () => {}
-
-    /**
-     * callback function to run when a new mesh is loaded
-     * @type {function}
-     * @example
-     * niivue.onMeshLoaded = (mesh) => {
-     * console.log('mesh loaded')
-     * console.log('mesh: ', mesh)
-     * }
-     */
-    this.onMeshLoaded = () => {}
-
-    /**
-     * callback function to run when the user changes the volume when a 4D image is loaded
-     * @type {function}
-     * @example
-     * niivue.onFrameChange = (volume, frameNumber) => {
-     * console.log('frame changed')
-     * console.log('volume: ', volume)
-     * console.log('frameNumber: ', frameNumber)
-     * }
-     */
-    this.onFrameChange = () => {}
-
-    /**
-     * callback function to run when niivue reports an error
-     * @type {function}
-     * @example
-     * niivue.onError = (error) => {
-     * console.log('error: ', error)
-     * }
-     */
-    this.onError = () => {}
-
-    /**
-     * callback function to run when niivue reports detailed info
-     * @type {function}
-     * @example
-     * niivue.onInfo = (info) => {
-     * console.log('info: ', info)
-     * }
-     */
-    this.onInfo = () => {}
-
-    /**
-     * callback function to run when niivue reports a warning
-     * @type {function}
-     * @example
-     * niivue.onWarn = (warn) => {
-     * console.log('warn: ', warn)
-     * }
-     */
-    this.onWarn = () => {}
-
-    /**
-     * callback function to run when niivue reports a debug message
-     * @type {function}
-     * @example
-     * niivue.onDebug = (debug) => {
-     * console.log('debug: ', debug)
-     * }
-     */
-    this.onDebug = () => {}
-
-    /**
-     * callback function to run when a volume is added from a url
-     * @type {function}
-     * @example
-     * niivue.onVolumeAddedFromUrl = (imageOptions, volume) => {
-     * console.log('volume added from url')
-     * console.log('imageOptions: ', imageOptions)
-     * console.log('volume: ', volume)
-     * }
-     */
-    this.onVolumeAddedFromUrl = () => {}
-    this.onVolumeWithUrlRemoved = () => {}
-
-    /**
-     * callback function to run when updateGLVolume is called (most users will not need to use this)
-     * @type {function}
-     * @example
-     * niivue.onVolumeUpdated = () => {
-     * console.log('volume updated')
-     * }
-     */
-    this.onVolumeUpdated = () => {}
-
-    /**
-     * callback function to run when a mesh is added from a url
-     * @type {function}
-     * @example
-     * niivue.onMeshAddedFromUrl = (meshOptions, mesh) => {
-     * console.log('mesh added from url')
-     * console.log('meshOptions: ', meshOptions)
-     * console.log('mesh: ', mesh)
-     * }
-     */
-    this.onMeshAddedFromUrl = () => {}
-
-    // this seems redundant with onMeshLoaded
-    this.onMeshAdded = () => {}
-    this.onMeshWithUrlRemoved = () => {}
-
-    // not implemented anywhere...
-    this.onZoom3DChange = () => {}
-
-    /**
-     * callback function to run when the user changes the rotation of the 3D rendering
-     * @type {function}
-     * @example
-     * niivue.onAzimuthElevationChange = (azimuth, elevation) => {
-     * console.log('azimuth: ', azimuth)
-     * console.log('elevation: ', elevation)
-     * }
-     */
-    this.onAzimuthElevationChange = () => {}
-
-    /**
-     * callback function to run when the user changes the clip plane
-     * @type {function}
-     * @example
-     * niivue.onClipPlaneChange = (clipPlane) => {
-     * console.log('clipPlane: ', clipPlane)
-     * }
-     */
-    this.onClipPlaneChange = () => {}
-    this.onCustomMeshShaderAdded = () => {}
-    this.onMeshShaderChanged = () => {}
-    this.onMeshPropertyChanged = () => {}
-
-    /**
-     * callback function to run when the user loads a new NiiVue document
-     * @type {function}
-     * @example
-     * niivue.onDocumentLoaded = (document) => {
-     * console.log('document: ', document)
-     * }
-     */
-    this.onDocumentLoaded = () => {}
-
-    this.document = new NVDocument()
-
-    this.opts = { ...DEFAULT_OPTIONS }
     this.scene = { ...this.document.scene }
 
     // populate Niivue with user supplied options
@@ -1703,7 +1709,7 @@ export class Niivue {
     const url = dt.getData('text/uri-list')
     if (url) {
       urlsToLoad.push(url)
-      const imageOptions = new NVImageFromUrlOptions(url)
+      const imageOptions = imageFromUrlOptions({ url })
       const ext = this.getFileExt(url)
       log.debug('dropped ext')
       log.debug(ext)
@@ -2175,7 +2181,7 @@ export class Niivue {
     this.drawClearAllUndoBitmaps()
     let ok = false
     try {
-      const volume = await NVImage.loadFromUrl(new NVImageFromUrlOptions(fnm))
+      const volume = await NVImage.loadFromUrl(imageFromUrlOptions({ url: fnm }))
       if (isBinarize) {
         await this.binarize(volume)
       }
@@ -8903,7 +8909,7 @@ export class Niivue {
   }
 
   // not included in public docs
-  drawSceneCore() {
+  drawSceneCore(): void {
     if (!this.initialized) {
       return // do not do anything until we are initialized (init will call drawScene).
     }
@@ -9158,7 +9164,7 @@ export class Niivue {
 
   // not included in public docs
   // called to refresh canvas
-  async drawScene() {
+  async drawScene(): Promise<void> {
     if (this.isBusy) {
       // limit concurrent draw calls (chrome v FireFox)
       this.needsRefresh = true

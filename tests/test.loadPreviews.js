@@ -1,4 +1,4 @@
-const { snapshot, httpServerAddress } = require('./helpers')
+const { httpServerAddress } = require('./helpers')
 
 beforeEach(async () => {
   await page.goto(httpServerAddress, { timeout: 0 })

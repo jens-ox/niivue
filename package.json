@@ -22,12 +22,14 @@
     "demo": "npm run build && rm -rf demos/dist && cp -r dist demos/dist && npx http-server demos/ --cors",
     "demo-win": "npm run build-win && npx http-server demos/",
     "test": "npm run build && jest --maxWorkers=1",
+    "test-dev": "npm run build && jest --maxWorkers=1 tests/test.loadMZ*.js",
     "test-win": "npm run build-win && jest",
     "test-playwright": "npm run build && npx playwright test",
     "docs": "npx jsdoc --readme ./README.md -d devdocs -r src/ -t node_modules/docdash",
     "serve-docs": "npx http-server devdocs",
     "pub": "npm run build && npm publish --access public",
     "lint": "eslint .",
+    "lint:ts": "tsc --noEmit",
     "lint:debug": "DEBUG=eslint:cli-engine eslint ."
   },
   "files": [
@@ -53,6 +55,7 @@
   "homepage": "https://github.com/niivue/niivue#readme",
   "dependencies": {
     "@ungap/structured-clone": "^1.0.2",
+    "array-equal": "^1.0.2",
     "daikon": "^1.2.43",
     "fflate": "^0.7.4",
     "gl-matrix": "^3.4.3",
@@ -62,6 +65,7 @@
   "devDependencies": {
     "@playwright/test": "^1.40.0",
     "@rollup/plugin-commonjs": "^24.0.1",
+    "@types/array-equal": "^1.0.2",
     "@types/node": "^20.9.5",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@typescript-eslint/parser": "^6.12.0",
