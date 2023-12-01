@@ -259,6 +259,7 @@ export const readX3D = (buffer: ArrayBuffer): X3D => {
         vec4.add(pti, pti, translation)
         vec4.add(ptj, ptj, translation)
         // https://www.web3d.org/specifications/X3Dv4Draft/ISO-IEC19775-1v4-CD/Part01/components/geometry3D.html#Cylinder
+        // @ts-expect-error -- should pti and ptj should be vec3
         NiivueObject3D.makeColoredCylinder(positions, indices, rgba255, pti, ptj, radius, rgba)
       }
     } // while <shape

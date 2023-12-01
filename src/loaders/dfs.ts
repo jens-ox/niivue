@@ -1,6 +1,6 @@
-import { ColorReadResult } from '../types.js'
+import { ReadResult } from '../types.js'
 
-export const readDFS = (buffer: ArrayBuffer): ColorReadResult => {
+export const readDFS = (buffer: ArrayBuffer): ReadResult => {
   // Does not play with other formats: vertex positions do not use Aneterior Commissure as origin
   const reader = new DataView(buffer)
   const magic = reader.getUint32(0, true) // "DFS_"
@@ -30,7 +30,7 @@ export const readDFS = (buffer: ArrayBuffer): ColorReadResult => {
     positions[i] = positions[i + 1]
     positions[i + 1] = tmp
   }
-  let colors = null
+  let colors
   if (vcoffset >= 0) {
     colors = new Float32Array(buffer, vcoffset, nvert * 3)
   }
